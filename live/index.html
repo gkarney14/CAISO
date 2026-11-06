@@ -3,21 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Scarlet Node Prices</title>
+<title>Scarlet / Sonrisa Node Prices</title>
 <meta name="description" content="Live CAISO prices at the Scarlet / Sonrisa pnodes vs NP15: real-time LMP and components, day-ahead forecast vs real-time actual by hour ending, and simulated BESS arbitrage.">
 <style>
 /* Layout: one column of cards; summary first, detail below. */
-:root{--bg:#f5f6f8;--card:#fff;--ink:#18202b;--mut:#5b6575;--line:#e2e5ea;--acc:#0b7285;
+:root{--band1:#0b4f6c;--band2:#0b7285;--bandInk:#f4fbfd;--bg:#f5f6f8;--card:#fff;--ink:#18202b;--mut:#5b6575;--line:#e2e5ea;--acc:#0b7285;
  --neg:#1c7ed6;--ok:#2f9e44;--warn:#e67700;--hot:#e03131;--np:#868e96;--negbg:#e7f1fd}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10141a;--card:#19202a;--ink:#e6e9ee;--mut:#9aa4b2;--line:#2a3240;--acc:#3bc9db;--neg:#4dabf7;--ok:#51cf66;--warn:#ffa94d;--hot:#ff6b6b;--np:#adb5bd;--negbg:#16283c;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#10141a;--card:#19202a;--ink:#e6e9ee;--mut:#9aa4b2;--line:#2a3240;--acc:#3bc9db;--neg:#4dabf7;--ok:#51cf66;--warn:#ffa94d;--hot:#ff6b6b;--np:#adb5bd;--negbg:#16283c;color-scheme:dark}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--band1:#0a3446;--band2:#0e5566;--bandInk:#e9f6f9;--bg:#10141a;--card:#19202a;--ink:#e6e9ee;--mut:#9aa4b2;--line:#2a3240;--acc:#3bc9db;--neg:#4dabf7;--ok:#51cf66;--warn:#ffa94d;--hot:#ff6b6b;--np:#adb5bd;--negbg:#16283c;color-scheme:dark}}
+:root[data-theme="dark"]{--band1:#0a3446;--band2:#0e5566;--bandInk:#e9f6f9;--bg:#10141a;--card:#19202a;--ink:#e6e9ee;--mut:#9aa4b2;--line:#2a3240;--acc:#3bc9db;--neg:#4dabf7;--ok:#51cf66;--warn:#ffa94d;--hot:#ff6b6b;--np:#adb5bd;--negbg:#16283c;color-scheme:dark}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 .wrap{max-width:1100px;margin:auto;padding-block:18px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:14px}
 h1{margin:0;font-size:22px;text-wrap:balance}.sub{color:var(--mut);margin:2px 0 0;font-size:13px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0}
 .card h2{font-size:12px;margin:0 0 10px;color:var(--mut);font-weight:650;text-transform:uppercase;letter-spacing:.05em}
-.hero{display:flex;flex-wrap:wrap;gap:12px 28px;align-items:baseline}
+
 .hero .big{font-size:44px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
 .hero.negative{background:var(--negbg);border-color:var(--neg)}
 .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:650;border:1px solid currentColor}
@@ -32,25 +32,55 @@ th{font-size:12px;color:var(--mut);font-weight:650}tr.cur td{background:var(--ne
 .bar{display:inline-block;height:9px;border-radius:2px;vertical-align:middle}
 .note{font-size:12.5px;color:var(--mut)}canvas{max-height:300px}a{color:var(--acc)}
 .gloss{display:grid;grid-template-columns:minmax(150px,max-content) 1fr;gap:6px 16px;margin:0;font-size:14px}.gloss dt{font-weight:650}.gloss dd{margin:0;color:var(--mut)}@media(max-width:560px){.gloss{grid-template-columns:1fr;gap:2px}.gloss dd{margin-bottom:8px}}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:10px 20px;padding:18px 20px;border-radius:16px;background:linear-gradient(135deg,var(--band1),var(--band2));color:var(--bandInk)}
+.top h1{font-size:26px;letter-spacing:-.01em;color:var(--bandInk)}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.08em;opacity:.8}
+.status{display:flex;align-items:center;gap:8px;font-size:13px;opacity:.92;margin-top:4px}.dot{width:9px;height:9px;border-radius:50%;background:#8ce99a;box-shadow:0 0 0 3px rgba(140,233,154,.25)}.dot.stale{background:#ffa94d;box-shadow:0 0 0 3px rgba(255,169,77,.25)}
+.links{display:flex;flex-wrap:wrap;gap:6px}.links a{color:var(--bandInk);text-decoration:none;font-size:13px;font-weight:600;padding:5px 11px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25)}.links a:hover{background:rgba(255,255,255,.26)}.links a:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.hero{display:grid;gap:12px}.pick{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}.pick label{font-size:12px;color:var(--mut);font-weight:650;text-transform:uppercase;letter-spacing:.05em}
+.pick select{font:inherit;font-weight:650;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 10px;max-width:100%;min-width:0}
+.heroRow{display:flex;flex-wrap:wrap;gap:12px 28px;align-items:baseline}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <h1>Scarlet / Sonrisa node prices</h1>
-    <p class="sub"><a href="#glossary">Glossary of terms</a></p>
-    <p class="sub" id="upd">Loading CAISO data…</p>
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">CAISO · Scarlet / Sonrisa cohort</div>
+      <h1>Scarlet / Sonrisa Node Prices</h1>
+      <div class="status"><span class="dot" id="dot"></span><span id="upd">Loading CAISO data…</span></div>
+    </div>
+    <nav class="links"><a href="#forecast">Forecast</a><a href="#sim">Arbitrage</a><a href="#glossary">Glossary</a><a href="../">Simulator</a></nav>
   </header>
 
   <section class="card hero" id="hero">
-    <div><div class="note">Real-time 5-min LMP · SCARLT_7_N011</div><div class="big" id="hP">–</div></div>
-    <div><div class="note">Interval</div><div id="hT" class="b">–</div></div>
-    <div><div class="note">Basis vs NP15</div><div id="hB" class="b">–</div></div>
-    <div><span class="pill" id="hS">–</span></div>
+    <div class="pick">
+      <label for="node">Pricing node</label>
+      <select id="node">
+        <optgroup label="BESS">
+          <option value="scarlet">Scarlet III BESS · SCARLT_7_N011</option>
+          <option value="sonrisa">Sonrisa BESS · SCARLT_7_ND001</option>
+          <option value="s1a_bess">Scarlet I-1A BESS · SCARLT_7_N001</option>
+          <option value="s1b_bess">Scarlet I-1B BESS · SCARLT_7_N002</option>
+          <option value="s2_bess">Scarlet II BESS · SCARLT_7_N010</option>
+        </optgroup>
+        <optgroup label="PV">
+          <option value="sonrisa_pv">Sonrisa PV · SCARLT_7_ND002</option>
+          <option value="s1a_pv">Scarlet I-1A PV · SCARLT_7_CN1</option>
+          <option value="s1b_pv">Scarlet I-1B PV · SCARLT_7_CN2</option>
+          <option value="s2_pv">Scarlet II PV · SCARLT_7_N005</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="heroRow">
+      <div><div class="note">Real-time 5-min LMP</div><div class="big" id="hP">–</div></div>
+      <div><div class="note">Interval</div><div id="hT" class="b">–</div></div>
+      <div><div class="note">Basis vs NP15</div><div id="hB" class="b">–</div></div>
+      <div><span class="pill" id="hS">–</span></div>
+    </div>
   </section>
 
   <section class="card">
-    <h2>LMP components (node, real-time)</h2>
+    <h2>LMP components · <span class="selName">node</span> · real-time</h2>
     <div class="tiles">
       <div class="tile"><div class="l">Energy (MCE)</div><div class="v" id="cE">–</div></div>
       <div class="tile"><div class="l">Congestion (MCC)</div><div class="v" id="cC">–</div></div>
@@ -64,19 +94,19 @@ th{font-size:12px;color:var(--mut);font-weight:650}tr.cur td{background:var(--ne
     <div class="tiles" id="hubs"></div>
   </section>
 
-  <section class="card">
-    <h2>Day-ahead forecast vs real-time actual · hour ending, Pacific</h2>
+  <section class="card" id="forecast">
+    <h2>Day-ahead forecast vs real-time actual · <span class="selName">node</span> · hour ending, Pacific</h2>
     <p class="note" id="daSum"></p>
     <div class="tw"><table id="daT"><thead><tr><th>HE (PT)</th><th>DA forecast</th><th>RT actual</th><th>Δ</th><th>NP15 DA</th><th style="text-align:left">Shape</th></tr></thead><tbody></tbody></table></div>
     <p class="note">RT actual is the hourly average of 5-minute RTM prices; the current hour is partial. <span class="n">Blue</span> marks negative prices and the 4 cheapest DA hours; <span class="h">red</span> marks the 4 priciest. Tomorrow's day-ahead prices post around 1 to 2 pm Pacific.</p>
   </section>
 
   <section class="grid2">
-    <div class="card"><h2>Node vs NP15, last 48 h</h2><canvas id="c48"></canvas></div>
+    <div class="card"><h2><span class="selName">Node</span> vs NP15, last 48 h</h2><canvas id="c48"></canvas></div>
     <div class="card"><h2>Basis (node minus NP15), last 48 h</h2><canvas id="cBasis"></canvas></div>
   </section>
 
-  <section class="card">
+  <section class="card" id="sim">
     <h2>Simulated BESS arbitrage</h2>
     <div class="tw"><table id="simT"><thead><tr><th>Project</th><th>Strategy</th><th>Last full day</th><th>Month to date</th></tr></thead><tbody></tbody></table></div>
     <p class="note" id="simNote">Energy arbitrage only, one cycle per day, 85% round-trip efficiency, $5/MWh degradation, cohort pnode prices. Full model: <a href="../">BESS Arbitrage Simulator</a>.</p>
@@ -131,14 +161,21 @@ const ptH=s=>parseInt(new Date(s*1000).toLocaleString("en-US",{timeZone:"America
 const ptD=s=>new Date(s*1000).toLocaleDateString("en-US",{timeZone:"America/Los_Angeles",weekday:"short"});
 const ptDay=s=>new Date(s*1000).toLocaleDateString("en-CA",{timeZone:"America/Los_Angeles"});
 const color=p=>p<0?css("--neg"):p<40?css("--ok"):p<100?css("--warn"):css("--hot");
-let charts={};
+let charts={},SEL="scarlet",LAST=null;
+const NAMES={scarlet:"Scarlet III BESS",sonrisa:"Sonrisa BESS",s1a_bess:"Scarlet I-1A BESS",s1b_bess:"Scarlet I-1B BESS",s2_bess:"Scarlet II BESS",sonrisa_pv:"Sonrisa PV",s1a_pv:"Scarlet I-1A PV",s1b_pv:"Scarlet I-1B PV",s2_pv:"Scarlet II PV"};
+try{const h=location.hash.slice(1);if(NAMES[h])SEL=h;else{const v=localStorage.getItem("pnode");if(NAMES[v])SEL=v;}}catch(e){}
+$("node").value=SEL;
+$("node").onchange=()=>{SEL=$("node").value;try{localStorage.setItem("pnode",SEL)}catch(e){};history.replaceState(null,"","#"+SEL);if(LAST)render(LAST);};
 function draw(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart($(id),cfg);}
 const axes=(yfmt)=>({x:{type:"category",ticks:{color:css("--mut"),maxTicksLimit:8,autoSkip:true},grid:{color:css("--line")}},y:{ticks:{color:css("--mut"),callback:yfmt},grid:{color:css("--line")}}});
 
 async function load(){
-  const L=await (await fetch("../data/live.json?t="+Date.now())).json();
-  const s=L.rt.scarlet||[], last=s[s.length-1], np=L.rt.np15||[], npLast=np[np.length-1];
-  $("upd").textContent="Data refreshed "+new Date(L.generated*1000).toLocaleString("en-US",{timeZone:"America/Los_Angeles",dateStyle:"medium",timeStyle:"short"})+" PT";
+  const L=await (await fetch("../data/live.json?t="+Date.now())).json(); LAST=L; render(L);}
+function render(L){
+  document.querySelectorAll(".selName").forEach(e=>e.textContent=NAMES[SEL]);
+  const age=(Date.now()/1000-L.generated)/60; $("dot").classList.toggle("stale",age>20);
+  const s=L.rt[SEL]||[], last=s[s.length-1], np=L.rt.np15||[], npLast=np[np.length-1];
+  $("upd").textContent=(age>20?"Data delayed · ":"Live · ")+"refreshed "+new Date(L.generated*1000).toLocaleString("en-US",{timeZone:"America/Los_Angeles",dateStyle:"medium",timeStyle:"short"})+" PT";
   if(last){
     const p=last[1],b=npLast?p-npLast[1]:null;
     $("hP").textContent=usd(p)+"/MWh";$("hP").style.color=color(p);
@@ -152,7 +189,7 @@ async function load(){
   const lab={scarlet:"Scarlet III (N011)",sonrisa:"Sonrisa (ND001)",np15:"NP15 hub",zp26:"ZP26 hub",sp15:"SP15 hub"};
   $("hubs").innerHTML=Object.keys(lab).filter(k=>L.rt[k]&&L.rt[k].length).map(k=>{const r=L.rt[k][L.rt[k].length-1];return `<div class="tile"><div class="l">${lab[k]}</div><div class="v" style="color:${color(r[1])}">${usd(r[1])}</div><div class="l">congestion ${sgn(r[3])}</div></div>`}).join("");
   // DA vs RT table
-  const da=L.da.scarlet||[], dnp=Object.fromEntries((L.da.np15||[]).map(x=>[x[0],x[1]]));
+  const da=L.da[SEL]||[], dnp=Object.fromEntries((L.da.np15||[]).map(x=>[x[0],x[1]]));
   const rtH={};s.forEach(r=>{const hk=r[0]-(r[0]%3600);(rtH[hk]=rtH[hk]||[]).push(r[1])});
   const ps=da.map(x=>x[1]).sort((a,b)=>a-b), lo=ps.length>4?ps[3]:-1e9, hi=ps.length>4?ps[ps.length-4]:1e9, now=Date.now()/1000;
   let day="",dsum=0,dn=0;
@@ -166,7 +203,7 @@ async function load(){
   // 48h charts
   const npM=Object.fromEntries(np.map(r=>[r[0],r[1]]));
   const labels=s.map(r=>ptD(r[0])+" "+ptT(r[0]));
-  draw("c48",{type:"line",data:{labels,datasets:[{label:"Scarlet node",data:s.map(r=>r[1]),borderColor:css("--acc"),pointRadius:0,borderWidth:1.6},{label:"NP15",data:s.map(r=>npM[r[0]]??null),borderColor:css("--np"),pointRadius:0,borderWidth:1.2}]},options:{animation:false,interaction:{mode:"index",intersect:false},plugins:{legend:{labels:{color:css("--ink"),boxWidth:12}}},scales:axes(v=>"$"+v)}});
+  draw("c48",{type:"line",data:{labels,datasets:[{label:NAMES[SEL],data:s.map(r=>r[1]),borderColor:css("--acc"),pointRadius:0,borderWidth:1.6},{label:"NP15",data:s.map(r=>npM[r[0]]??null),borderColor:css("--np"),pointRadius:0,borderWidth:1.2}]},options:{animation:false,interaction:{mode:"index",intersect:false},plugins:{legend:{labels:{color:css("--ink"),boxWidth:12}}},scales:axes(v=>"$"+v)}});
   draw("cBasis",{type:"bar",data:{labels,datasets:[{label:"Basis $/MWh",data:s.map(r=>npM[r[0]]!=null?+(r[1]-npM[r[0]]).toFixed(2):null),backgroundColor:s.map(r=>npM[r[0]]!=null&&r[1]-npM[r[0]]<0?css("--neg"):css("--warn"))}]},options:{animation:false,plugins:{legend:{display:false}},scales:axes(v=>"$"+v)}});
 }
 async function sim(){
