@@ -45,7 +45,29 @@ for r in rows:
     if r["LMP_TYPE"] != "LMP" or r["NODE"] not in DA_NODES: continue
     t = int(dt.datetime.fromisoformat(r["INTERVALSTARTTIME_GMT"]).timestamp())
     da.setdefault(DA_NODES[r["NODE"]], {})[t] = round(val(r), 2)
-out = {"generated": int(time.time()),
+# --- Irradiance forecast at the Scarlet site (public coordinates, Global Energy Monitor) ---
+SITE = (36.5975, -120.3623)
+irr = []
+try:
+    import pandas as pd, pvlib
+    q = (f"https://api.open-meteo.com/v1/forecast?latitude={SITE[0]}&longitude={SITE[1]}"
+         "&hourly=shortwave_radiation,direct_normal_irradiance,diffuse_radiation,cloud_cover,temperature_2m"
+         "&temperature_unit=fahrenheit&timezone=UTC&forecast_days=3&past_days=1")
+    h = json.load(urllib.request.urlopen(q, timeout=60))["hourly"]
+    end = pd.to_datetime(h["time"], utc=True)            # values are means over the hour ending at this time
+    mid = end - pd.Timedelta(minutes=30)
+    sp = pvlib.solarposition.get_solarposition(mid, SITE[0], SITE[1])
+    trk = pvlib.tracking.singleaxis(sp["apparent_zenith"], sp["azimuth"], axis_tilt=0, axis_azimuth=180,
+                                    max_angle=60, backtrack=True, gcr=0.35)
+    ghi, dni, dhi = (pd.Series(h[k], index=end).fillna(0) for k in ("shortwave_radiation", "direct_normal_irradiance", "diffuse_radiation"))
+    poa = pvlib.irradiance.get_total_irradiance(trk["surface_tilt"].fillna(0), trk["surface_azimuth"].fillna(180),
+              sp["apparent_zenith"].values, sp["azimuth"].values, dni.values, ghi.values, dhi.values, albedo=0.2)["poa_global"]
+    for i, t in enumerate(end):
+        st = int((t - pd.Timedelta(hours=1)).timestamp())   # hour start, to match DA interval start
+        irr.append([st, round(ghi.iloc[i]), round(float(poa.iloc[i]) if poa.iloc[i] == poa.iloc[i] else 0), round(dni.iloc[i]), h["cloud_cover"][i], h["temperature_2m"][i]])
+except Exception as ex:
+    print("irradiance skipped:", ex)
+out = {"generated": int(time.time()), "irr_site": {"lat": SITE[0], "lon": SITE[1], "tracker": "1-axis N-S, +/-60 deg, backtracking, GCR 0.35"}, "irr": irr,
        "rt": {n: [[t, d.get("LMP"), d.get("MCE"), d.get("MCC"), d.get("MCL"), d.get("MGHG")] for t, d in sorted(v.items()) if "LMP" in d] for n, v in rt.items()},
        "da": {n: [[t, p] for t, p in sorted(v.items())] for n, v in da.items()}}
 json.dump(out, open("data/live.json", "w"), separators=(",", ":"))

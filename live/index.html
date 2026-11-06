@@ -9,10 +9,10 @@
 <meta name="description" content="Live CAISO prices at the Scarlet / Sonrisa pnodes vs NP15: real-time LMP and components, day-ahead forecast vs real-time actual by hour ending, and simulated BESS arbitrage.">
 <style>
 /* Layout: one column of cards; summary first, detail below. */
-:root{--band1:#0b4f6c;--band2:#0b7285;--bandInk:#f4fbfd;--bg:#f5f6f8;--card:#fff;--ink:#18202b;--mut:#5b6575;--line:#e2e5ea;--acc:#0b7285;
+:root{--irrbg:#fff8e6;--band1:#0b4f6c;--band2:#0b7285;--bandInk:#f4fbfd;--bg:#f5f6f8;--card:#fff;--ink:#18202b;--mut:#5b6575;--line:#e2e5ea;--acc:#0b7285;
  --neg:#1c7ed6;--ok:#2f9e44;--warn:#e67700;--hot:#e03131;--np:#868e96;--negbg:#e7f1fd}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--band1:#0a3446;--band2:#0e5566;--bandInk:#e9f6f9;--bg:#10141a;--card:#19202a;--ink:#e6e9ee;--mut:#9aa4b2;--line:#2a3240;--acc:#3bc9db;--neg:#4dabf7;--ok:#51cf66;--warn:#ffa94d;--hot:#ff6b6b;--np:#adb5bd;--negbg:#16283c;color-scheme:dark}}
-:root[data-theme="dark"]{--band1:#0a3446;--band2:#0e5566;--bandInk:#e9f6f9;--bg:#10141a;--card:#19202a;--ink:#e6e9ee;--mut:#9aa4b2;--line:#2a3240;--acc:#3bc9db;--neg:#4dabf7;--ok:#51cf66;--warn:#ffa94d;--hot:#ff6b6b;--np:#adb5bd;--negbg:#16283c;color-scheme:dark}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--irrbg:#2a2516;--band1:#0a3446;--band2:#0e5566;--bandInk:#e9f6f9;--bg:#10141a;--card:#19202a;--ink:#e6e9ee;--mut:#9aa4b2;--line:#2a3240;--acc:#3bc9db;--neg:#4dabf7;--ok:#51cf66;--warn:#ffa94d;--hot:#ff6b6b;--np:#adb5bd;--negbg:#16283c;color-scheme:dark}}
+:root[data-theme="dark"]{--irrbg:#2a2516;--band1:#0a3446;--band2:#0e5566;--bandInk:#e9f6f9;--bg:#10141a;--card:#19202a;--ink:#e6e9ee;--mut:#9aa4b2;--line:#2a3240;--acc:#3bc9db;--neg:#4dabf7;--ok:#51cf66;--warn:#ffa94d;--hot:#ff6b6b;--np:#adb5bd;--negbg:#16283c;color-scheme:dark}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 .wrap{max-width:1100px;margin:auto;padding-block:18px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:14px}
@@ -41,6 +41,7 @@ th{font-size:12px;color:var(--mut);font-weight:650}tr.cur td{background:var(--ne
 .hero{display:grid;gap:12px}.pick{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}.pick label{font-size:12px;color:var(--mut);font-weight:650;text-transform:uppercase;letter-spacing:.05em}
 .pick select{font:inherit;font-weight:650;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 10px;max-width:100%;min-width:0}
 .heroRow{display:flex;flex-wrap:wrap;gap:12px 28px;align-items:baseline}
+th.irr,td.irr{background:var(--irrbg)}td.ok{color:var(--ok);font-weight:700}
 </style>
 </head>
 <body>
@@ -99,8 +100,9 @@ th{font-size:12px;color:var(--mut);font-weight:650}tr.cur td{background:var(--ne
   <section class="card" id="forecast">
     <h2>Day-ahead forecast vs real-time actual · <span class="selName">node</span> · hour ending, Pacific</h2>
     <p class="note" id="daSum"></p>
-    <div class="tw"><table id="daT"><thead><tr><th>HE (PT)</th><th>DA forecast</th><th>RT actual</th><th>Δ</th><th>NP15 DA</th><th style="text-align:left">Shape</th></tr></thead><tbody></tbody></table></div>
-    <p class="note">RT actual is the hourly average of 5-minute RTM prices; the current hour is partial. <span class="n">Blue</span> marks negative prices and the 4 cheapest DA hours; <span class="h">red</span> marks the 4 priciest. Tomorrow's day-ahead prices post around 1 to 2 pm Pacific.</p>
+    <div class="pick" style="margin-bottom:8px"><label for="poaMin">Test POA threshold (W/m²)</label><input id="poaMin" type="number" min="0" step="50" value="600" style="width:90px;font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:5px 8px"><span class="note" id="poaSum"></span></div>
+    <div class="tw"><table id="daT"><thead><tr><th>HE (PT)</th><th>DA forecast</th><th>RT actual</th><th>Δ</th><th>NP15 DA</th><th class="irr">GHI</th><th class="irr">POA (tracker)</th><th class="irr">Cloud</th><th class="irr">Temp</th><th style="text-align:left">Shape</th></tr></thead><tbody></tbody></table></div>
+    <p class="note">Irradiance: Open-Meteo forecast (NOAA HRRR/NBM blend) at the Scarlet site (36.598, -120.362), hourly means for each hour ending. GHI is global horizontal; POA is modeled for a single-axis tracker (N-S axis, ±60°, backtracking) with pvlib; <b>green</b> POA meets the test threshold. Forecast only, not site met-station data. RT actual is the hourly average of 5-minute RTM prices; the current hour is partial. <span class="n">Blue</span> marks negative prices and the 4 cheapest DA hours; <span class="h">red</span> marks the 4 priciest. Tomorrow's day-ahead prices post around 1 to 2 pm Pacific.</p>
   </section>
 
   <section class="grid2">
@@ -200,13 +202,15 @@ function render(L){
   const da=L.da[SEL]||[], dnp=Object.fromEntries((L.da.np15||[]).map(x=>[x[0],x[1]]));
   const rtH={};s.forEach(r=>{const hk=r[0]-(r[0]%3600);(rtH[hk]=rtH[hk]||[]).push(r[1])});
   const ps=da.map(x=>x[1]).sort((a,b)=>a-b), lo=ps.length>4?ps[3]:-1e9, hi=ps.length>4?ps[ps.length-4]:1e9, now=Date.now()/1000;
+  const IR=Object.fromEntries((L.irr||[]).map(x=>[x[0],x])); const pmin=+($("poaMin").value||600); let okH=[];
   let day="",dsum=0,dn=0;
   $("daT").tBodies[0].innerHTML=da.map(([t,p])=>{
     const a=rtH[t]?rtH[t].reduce((x,y)=>x+y,0)/rtH[t].length:null, cur=now>=t&&now<t+3600, d=ptD(t);
     if(a!=null){dsum+=a-p;dn++;}
     const cls=p<0||p<=lo?"n":p>=hi?"h":"", w=Math.min(120,Math.abs(p)*1.6);
-    const row=`<tr class="${cur?"cur":""}"><td>${cur?"▶ ":""}${d!==day?d+" ":""}HE${ptH(t)+1}</td><td class="${cls}">${usd(p)}</td><td>${a==null?"·":(cur?"<i>"+usd(a)+"</i>":usd(a))}</td><td class="${a!=null&&Math.abs(a-p)>=10?"b":""}">${a==null?"":sgn(a-p)}</td><td>${usd(dnp[t])}</td><td style="text-align:left"><span class="bar" style="width:${w}px;background:${color(p)}"></span></td></tr>`;
+    const row=`<tr class="${cur?"cur":""}"><td>${cur?"▶ ":""}${d!==day?d+" ":""}HE${ptH(t)+1}</td><td class="${cls}">${usd(p)}</td><td>${a==null?"·":(cur?"<i>"+usd(a)+"</i>":usd(a))}</td><td class="${a!=null&&Math.abs(a-p)>=10?"b":""}">${a==null?"":sgn(a-p)}</td><td>${usd(dnp[t])}</td>${(()=>{const i=IR[t];if(!i)return '<td class="irr">·</td><td class="irr">·</td><td class="irr">·</td><td class="irr">·</td>';if(i[2]>=pmin)okH.push(d+" HE"+(ptH(t)+1));return `<td class="irr">${i[1]}</td><td class="irr ${i[2]>=pmin?"ok":""}">${i[2]}</td><td class="irr">${i[4]}%</td><td class="irr">${Math.round(i[5])}°F</td>`})()}<td style="text-align:left"><span class="bar" style="width:${w}px;background:${color(p)}"></span></td></tr>`;
     day=d;return row}).join("");
+  $("poaSum").textContent=okH.length?`${okH.length} HE at or above ${pmin} W/m² POA: ${okH.join(", ")}`:`No hours forecast at or above ${pmin} W/m² POA.`;
   $("daSum").textContent=da.length?`DA min ${usd(ps[0])} · max ${usd(ps[ps.length-1])} · ${ps.filter(x=>x<0).length} negative HE${dn?` · RT vs DA so far ${sgn(dsum/dn)}/MWh avg`:""}`:"No day-ahead prices published yet.";
   // 48h charts
   const npM=Object.fromEntries(np.map(r=>[r[0],r[1]]));
@@ -226,6 +230,7 @@ async function sim(){
     $("simNote").insertAdjacentText("afterbegin",`Last full day ${lastDay}, ${md.length} days in ${mo}. `);
   }catch(e){$("simNote").textContent="Simulation data unavailable.";}
 }
+$("poaMin").addEventListener("change",()=>{if(LAST)render(LAST)});
 load();sim();setInterval(load,5*60*1000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&LAST&&Date.now()/1000-LAST.generated>360)load();});
 setInterval(()=>{if(LAST){const a=(Date.now()/1000-LAST.generated)/60;$("dot").classList.toggle("stale",a>20);}},60000);

@@ -22,8 +22,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - name: Fetch live CAISO prices
-        run: python scripts/fetch_live.py
+      - name: Fetch live CAISO prices + irradiance
+        run: |
+          pip install --quiet pvlib pandas
+          python scripts/fetch_live.py
       - name: Assemble site
         run: |
           mkdir -p _site/data
