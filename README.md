@@ -2,7 +2,7 @@
 
 Browser-based CAISO energy-arbitrage simulator for the Scarlet I/II/III and Sonrisa BESS resources (cohort pnode `SCARLT_7_N010`, all cohort pnodes clear within about $0.15) versus the NP15 hub.
 
-Open `index.html` (or the GitHub Pages site). Pick a project, adjust MW, duration, round-trip efficiency, cycles per day, degradation cost, date range, and trigger thresholds.
+Open `index.html` (or the GitHub Pages site). A live price dashboard is at `live/` (GitHub Pages: `/live/`). Pick a project, adjust MW, duration, round-trip efficiency, cycles per day, degradation cost, date range, and trigger thresholds.
 
 ## Strategies
 | Strategy | What it models |
@@ -23,3 +23,8 @@ A GitHub Action refreshes the data daily at about 3 pm PT. Run it manually from 
 Scarlet III 78 MW / 4 h and Sonrisa BESS 184 MW / 4 h are on file. Scarlet I-1A, I-1B and II use 78 MW / 4 h placeholders until updated in `index.html` (`PROJECTS`).
 
 Prepared by SG3 Consultants, LLC. Not investment advice; illustrative energy-arbitrage estimates from public CAISO market data.
+
+## Live dashboard (`live/`)
+Real-time 5-min LMP and components (energy, congestion, losses, GHG) at SCARLT_7_N011 and SCARLT_7_ND001, NP15/ZP26/SP15 hubs, node-to-NP15 basis, day-ahead forecast vs real-time actual by hour ending (Pacific), 48-hour charts, and simulated BESS arbitrage (last day and month to date).
+
+`.github/workflows/pages.yml` runs `scripts/fetch_live.py` about every 10 minutes and deploys the site to GitHub Pages. Repo Settings > Pages > Source must be set to **GitHub Actions**.

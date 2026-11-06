@@ -22,6 +22,8 @@ th:first-child,td:first-child{text-align:left}th{font-size:12px;color:var(--mut)
 .note{font-size:12.5px;color:var(--mut)}canvas{max-height:320px}
 .row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.row label{min-width:160px}
 details summary{cursor:pointer;color:var(--acc);font-weight:600}
+.gloss{display:grid;grid-template-columns:minmax(150px,max-content) 1fr;gap:6px 16px;margin:0;font-size:14px}.gloss dt{font-weight:650}.gloss dd{margin:0;color:var(--mut)}@media(max-width:560px){.gloss{grid-template-columns:1fr;gap:2px}.gloss dd{margin-bottom:8px}}
+main>*{min-width:0}.controls{grid-template-columns:repeat(auto-fill,minmax(min(150px,100%),1fr))}
 </style>
 </head>
 <body>
@@ -51,7 +53,7 @@ details summary{cursor:pointer;color:var(--acc);font-weight:600}
   <section class="card">
     <h2>Results</h2>
     <div class="wrap"><table id="res"><thead><tr><th>Strategy</th><th>Revenue</th><th>$/day</th><th>$/kW-month</th><th>Cycles</th><th>Avg charge $/MWh</th><th>Avg discharge $/MWh</th><th>MWh charged at &lt;$0</th><th>% of ceiling</th></tr></thead><tbody></tbody></table></div>
-    <p class="note">Energy arbitrage only: no ancillary services, RA, or capacity value. Perfect foresight is the ceiling; real bidding typically captures 60 to 85% of it.</p>
+    <p class="note"><a href="#glossary">Glossary of terms</a> · Energy arbitrage only: no ancillary services, RA, or capacity value. Perfect foresight is the ceiling; real bidding typically captures 60 to 85% of it.</p>
   </section>
 
   <section class="grid2">
@@ -65,6 +67,43 @@ details summary{cursor:pointer;color:var(--acc);font-weight:600}
     <canvas id="cDay"></canvas>
   </section>
 
+  <section class="card" id="glossary">
+    <h2>Glossary</h2>
+    <dl class="gloss">
+      <dt>CAISO</dt><dd>California Independent System Operator. Runs the grid and wholesale power markets for most of California.</dd>
+      <dt>OASIS</dt><dd>Open Access Same-time Information System. CAISO's public market-data site and API, the source for every price on this page.</dd>
+      <dt>LMP</dt><dd>Locational Marginal Price. The price of one more MWh delivered at a specific point on the grid, in $/MWh. LMP = energy + congestion + losses + GHG.</dd>
+      <dt>MCE</dt><dd>Marginal Cost of Energy. The system-wide energy component of the LMP; it is the same at every location in an interval.</dd>
+      <dt>MCC</dt><dd>Marginal Cost of Congestion. The part of the LMP caused by transmission limits. Strongly negative values mean the area has more generation than the grid can export.</dd>
+      <dt>MCL</dt><dd>Marginal Cost of Losses. The part of the LMP that reflects electrical losses delivering power to or from the location.</dd>
+      <dt>MGHG</dt><dd>Greenhouse-gas component. Non-zero only for imports into California from the Western Energy Imbalance Market; normally $0 at Scarlet.</dd>
+      <dt>Pnode / APnode</dt><dd>Pricing node / aggregated pricing node. The point where CAISO calculates an LMP. Each resource settles at its own pnode, such as SCARLT_7_N011.</dd>
+      <dt>Trading hub (NP15, ZP26, SP15)</dt><dd>Aggregated price points for Northern (NP15), Central (ZP26) and Southern (SP15) California. Contracts and PPAs often settle at a hub.</dd>
+      <dt>Basis</dt><dd>Node price minus hub price. Negative basis means power at the project is worth less than at the hub, almost always because of congestion.</dd>
+      <dt>Cohort</dt><dd>On this page, the Scarlet I, II, III and Sonrisa pnodes. They clear within about $0.15/MWh of each other, so one node represents all of them.</dd>
+      <dt>DA / DAM</dt><dd>Day-Ahead Market. Hourly prices for tomorrow, cleared and published around 1 to 2 pm Pacific. Used here as the price forecast.</dd>
+      <dt>RT / RTM</dt><dd>Real-Time Market. 5-minute dispatch prices that settle actual deviations from the day-ahead schedule.</dd>
+      <dt>RTPD / FMM</dt><dd>Real-Time Pre-Dispatch, also called the Fifteen-Minute Market. 15-minute real-time prices, used in the simulator's price history.</dd>
+      <dt>HE</dt><dd>Hour Ending. HE1 is 00:00 to 01:00 Pacific, HE24 is 23:00 to 24:00. Fall-back day has a repeated HE2; spring-forward day has no HE3.</dd>
+      <dt>PT</dt><dd>Pacific Time, the time zone CAISO operates in (PST UTC−8 in winter, PDT UTC−7 in summer).</dd>
+      <dt>Negative price</dt><dd>An LMP below $0. Generators pay to inject; a battery is paid to charge. Common at Scarlet in solar hours (about HE10 to HE15).</dd>
+      <dt>Duck curve</dt><dd>The daily price shape on solar-heavy grids: low or negative at midday, high in the morning and evening ramps. It is what battery arbitrage captures.</dd>
+      <dt>BESS</dt><dd>Battery Energy Storage System.</dd>
+      <dt>MW / MWh</dt><dd>Power (megawatts) and energy (megawatt-hours). A 78 MW, 4-hour battery stores 312 MWh.</dd>
+      <dt>Arbitrage</dt><dd>Charging when power is cheap and discharging when it is expensive. Revenue = discharge price × MWh out − charge price × MWh in.</dd>
+      <dt>RTE</dt><dd>Round-trip efficiency. Share of charged energy returned on discharge; 85% means 100 MWh in, 85 MWh out.</dd>
+      <dt>Cycle</dt><dd>One full charge and discharge of the battery's energy capacity.</dd>
+      <dt>Degradation cost</dt><dd>An allowance in $/MWh discharged for battery wear, deducted in the simulation.</dd>
+      <dt>Perfect foresight</dt><dd>Simulation that knows every real-time price of the day in advance. The theoretical ceiling for arbitrage revenue.</dd>
+      <dt>DA schedule</dt><dd>Simulation that picks charge and discharge hours from day-ahead prices and is paid day-ahead prices.</dd>
+      <dt>DA plan, RT settle</dt><dd>Same day-ahead schedule, paid real-time prices instead. The gap to "DA schedule" shows the cost of forecast error.</dd>
+      <dt>Δ (delta)</dt><dd>In the forecast table, real-time actual minus day-ahead forecast for that hour.</dd>
+      <dt>$/kW-month</dt><dd>Revenue normalized by battery power rating per month; used to compare projects of different sizes.</dd>
+      <dt>RA</dt><dd>Resource Adequacy. Capacity payments for being available at peak; not included in these arbitrage estimates.</dd>
+      <dt>AS</dt><dd>Ancillary Services (regulation, spinning and non-spinning reserve). Separate revenue streams; not included here.</dd>
+      <dt>PPA</dt><dd>Power Purchase Agreement. Long-term contract for a project's output, often priced at a hub, which creates basis exposure.</dd>
+    </dl>
+  </section>
   <section class="card">
     <details><summary>How each strategy works</summary>
     <ul class="note">

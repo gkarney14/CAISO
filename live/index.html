@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scarlet Node Prices</title>
+<meta name="description" content="Live CAISO prices at the Scarlet / Sonrisa pnodes vs NP15: real-time LMP and components, day-ahead forecast vs real-time actual by hour ending, and simulated BESS arbitrage.">
+<style>
+/* Layout: one column of cards; summary first, detail below. */
+:root{--bg:#f5f6f8;--card:#fff;--ink:#18202b;--mut:#5b6575;--line:#e2e5ea;--acc:#0b7285;
+ --neg:#1c7ed6;--ok:#2f9e44;--warn:#e67700;--hot:#e03131;--np:#868e96;--negbg:#e7f1fd}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10141a;--card:#19202a;--ink:#e6e9ee;--mut:#9aa4b2;--line:#2a3240;--acc:#3bc9db;--neg:#4dabf7;--ok:#51cf66;--warn:#ffa94d;--hot:#ff6b6b;--np:#adb5bd;--negbg:#16283c;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10141a;--card:#19202a;--ink:#e6e9ee;--mut:#9aa4b2;--line:#2a3240;--acc:#3bc9db;--neg:#4dabf7;--ok:#51cf66;--warn:#ffa94d;--hot:#ff6b6b;--np:#adb5bd;--negbg:#16283c;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1100px;margin:auto;padding-block:18px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:14px}
+h1{margin:0;font-size:22px;text-wrap:balance}.sub{color:var(--mut);margin:2px 0 0;font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0}
+.card h2{font-size:12px;margin:0 0 10px;color:var(--mut);font-weight:650;text-transform:uppercase;letter-spacing:.05em}
+.hero{display:flex;flex-wrap:wrap;gap:12px 28px;align-items:baseline}
+.hero .big{font-size:44px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.hero.negative{background:var(--negbg);border-color:var(--neg)}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:650;border:1px solid currentColor}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.tile{border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+.tile .l{font-size:12px;color:var(--mut)}.tile .v{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.grid2>*{min-width:0}@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th:first-child,td:first-child{text-align:left}
+th{font-size:12px;color:var(--mut);font-weight:650}tr.cur td{background:var(--negbg);font-weight:650}
+.n{color:var(--neg);font-weight:650}.h{color:var(--hot);font-weight:650}.b{font-weight:700}
+.bar{display:inline-block;height:9px;border-radius:2px;vertical-align:middle}
+.note{font-size:12.5px;color:var(--mut)}canvas{max-height:300px}a{color:var(--acc)}
+.gloss{display:grid;grid-template-columns:minmax(150px,max-content) 1fr;gap:6px 16px;margin:0;font-size:14px}.gloss dt{font-weight:650}.gloss dd{margin:0;color:var(--mut)}@media(max-width:560px){.gloss{grid-template-columns:1fr;gap:2px}.gloss dd{margin-bottom:8px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Scarlet / Sonrisa node prices</h1>
+    <p class="sub"><a href="#glossary">Glossary of terms</a></p>
+    <p class="sub" id="upd">Loading CAISO data…</p>
+  </header>
+
+  <section class="card hero" id="hero">
+    <div><div class="note">Real-time 5-min LMP · SCARLT_7_N011</div><div class="big" id="hP">–</div></div>
+    <div><div class="note">Interval</div><div id="hT" class="b">–</div></div>
+    <div><div class="note">Basis vs NP15</div><div id="hB" class="b">–</div></div>
+    <div><span class="pill" id="hS">–</span></div>
+  </section>
+
+  <section class="card">
+    <h2>LMP components (node, real-time)</h2>
+    <div class="tiles">
+      <div class="tile"><div class="l">Energy (MCE)</div><div class="v" id="cE">–</div></div>
+      <div class="tile"><div class="l">Congestion (MCC)</div><div class="v" id="cC">–</div></div>
+      <div class="tile"><div class="l">Losses (MCL)</div><div class="v" id="cL">–</div></div>
+      <div class="tile"><div class="l">GHG (MGHG)</div><div class="v" id="cG">–</div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Nodes and hubs (real-time)</h2>
+    <div class="tiles" id="hubs"></div>
+  </section>
+
+  <section class="card">
+    <h2>Day-ahead forecast vs real-time actual · hour ending, Pacific</h2>
+    <p class="note" id="daSum"></p>
+    <div class="tw"><table id="daT"><thead><tr><th>HE (PT)</th><th>DA forecast</th><th>RT actual</th><th>Δ</th><th>NP15 DA</th><th style="text-align:left">Shape</th></tr></thead><tbody></tbody></table></div>
+    <p class="note">RT actual is the hourly average of 5-minute RTM prices; the current hour is partial. <span class="n">Blue</span> marks negative prices and the 4 cheapest DA hours; <span class="h">red</span> marks the 4 priciest. Tomorrow's day-ahead prices post around 1 to 2 pm Pacific.</p>
+  </section>
+
+  <section class="grid2">
+    <div class="card"><h2>Node vs NP15, last 48 h</h2><canvas id="c48"></canvas></div>
+    <div class="card"><h2>Basis (node minus NP15), last 48 h</h2><canvas id="cBasis"></canvas></div>
+  </section>
+
+  <section class="card">
+    <h2>Simulated BESS arbitrage</h2>
+    <div class="tw"><table id="simT"><thead><tr><th>Project</th><th>Strategy</th><th>Last full day</th><th>Month to date</th></tr></thead><tbody></tbody></table></div>
+    <p class="note" id="simNote">Energy arbitrage only, one cycle per day, 85% round-trip efficiency, $5/MWh degradation, cohort pnode prices. Full model: <a href="../">BESS Arbitrage Simulator</a>.</p>
+  </section>
+
+  <section class="card" id="glossary">
+    <h2>Glossary</h2>
+    <dl class="gloss">
+      <dt>CAISO</dt><dd>California Independent System Operator. Runs the grid and wholesale power markets for most of California.</dd>
+      <dt>OASIS</dt><dd>Open Access Same-time Information System. CAISO's public market-data site and API, the source for every price on this page.</dd>
+      <dt>LMP</dt><dd>Locational Marginal Price. The price of one more MWh delivered at a specific point on the grid, in $/MWh. LMP = energy + congestion + losses + GHG.</dd>
+      <dt>MCE</dt><dd>Marginal Cost of Energy. The system-wide energy component of the LMP; it is the same at every location in an interval.</dd>
+      <dt>MCC</dt><dd>Marginal Cost of Congestion. The part of the LMP caused by transmission limits. Strongly negative values mean the area has more generation than the grid can export.</dd>
+      <dt>MCL</dt><dd>Marginal Cost of Losses. The part of the LMP that reflects electrical losses delivering power to or from the location.</dd>
+      <dt>MGHG</dt><dd>Greenhouse-gas component. Non-zero only for imports into California from the Western Energy Imbalance Market; normally $0 at Scarlet.</dd>
+      <dt>Pnode / APnode</dt><dd>Pricing node / aggregated pricing node. The point where CAISO calculates an LMP. Each resource settles at its own pnode, such as SCARLT_7_N011.</dd>
+      <dt>Trading hub (NP15, ZP26, SP15)</dt><dd>Aggregated price points for Northern (NP15), Central (ZP26) and Southern (SP15) California. Contracts and PPAs often settle at a hub.</dd>
+      <dt>Basis</dt><dd>Node price minus hub price. Negative basis means power at the project is worth less than at the hub, almost always because of congestion.</dd>
+      <dt>Cohort</dt><dd>On this page, the Scarlet I, II, III and Sonrisa pnodes. They clear within about $0.15/MWh of each other, so one node represents all of them.</dd>
+      <dt>DA / DAM</dt><dd>Day-Ahead Market. Hourly prices for tomorrow, cleared and published around 1 to 2 pm Pacific. Used here as the price forecast.</dd>
+      <dt>RT / RTM</dt><dd>Real-Time Market. 5-minute dispatch prices that settle actual deviations from the day-ahead schedule.</dd>
+      <dt>RTPD / FMM</dt><dd>Real-Time Pre-Dispatch, also called the Fifteen-Minute Market. 15-minute real-time prices, used in the simulator's price history.</dd>
+      <dt>HE</dt><dd>Hour Ending. HE1 is 00:00 to 01:00 Pacific, HE24 is 23:00 to 24:00. Fall-back day has a repeated HE2; spring-forward day has no HE3.</dd>
+      <dt>PT</dt><dd>Pacific Time, the time zone CAISO operates in (PST UTC−8 in winter, PDT UTC−7 in summer).</dd>
+      <dt>Negative price</dt><dd>An LMP below $0. Generators pay to inject; a battery is paid to charge. Common at Scarlet in solar hours (about HE10 to HE15).</dd>
+      <dt>Duck curve</dt><dd>The daily price shape on solar-heavy grids: low or negative at midday, high in the morning and evening ramps. It is what battery arbitrage captures.</dd>
+      <dt>BESS</dt><dd>Battery Energy Storage System.</dd>
+      <dt>MW / MWh</dt><dd>Power (megawatts) and energy (megawatt-hours). A 78 MW, 4-hour battery stores 312 MWh.</dd>
+      <dt>Arbitrage</dt><dd>Charging when power is cheap and discharging when it is expensive. Revenue = discharge price × MWh out − charge price × MWh in.</dd>
+      <dt>RTE</dt><dd>Round-trip efficiency. Share of charged energy returned on discharge; 85% means 100 MWh in, 85 MWh out.</dd>
+      <dt>Cycle</dt><dd>One full charge and discharge of the battery's energy capacity.</dd>
+      <dt>Degradation cost</dt><dd>An allowance in $/MWh discharged for battery wear, deducted in the simulation.</dd>
+      <dt>Perfect foresight</dt><dd>Simulation that knows every real-time price of the day in advance. The theoretical ceiling for arbitrage revenue.</dd>
+      <dt>DA schedule</dt><dd>Simulation that picks charge and discharge hours from day-ahead prices and is paid day-ahead prices.</dd>
+      <dt>DA plan, RT settle</dt><dd>Same day-ahead schedule, paid real-time prices instead. The gap to "DA schedule" shows the cost of forecast error.</dd>
+      <dt>Δ (delta)</dt><dd>In the forecast table, real-time actual minus day-ahead forecast for that hour.</dd>
+      <dt>$/kW-month</dt><dd>Revenue normalized by battery power rating per month; used to compare projects of different sizes.</dd>
+      <dt>RA</dt><dd>Resource Adequacy. Capacity payments for being available at peak; not included in these arbitrage estimates.</dd>
+      <dt>AS</dt><dd>Ancillary Services (regulation, spinning and non-spinning reserve). Separate revenue streams; not included here.</dd>
+      <dt>PPA</dt><dd>Power Purchase Agreement. Long-term contract for a project's output, often priced at a hub, which creates basis exposure.</dd>
+    </dl>
+  </section>
+  <p class="note">Source: CAISO OASIS (PRC_INTVL_LMP RTM, PRC_LMP DAM, PRC_RTPD_LMP). Refreshed about every 10 minutes by a GitHub Action; this page reloads its data every 5 minutes. Illustrative market data analysis by SG3 Consultants, LLC; not investment advice.</p>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="../sim.js"></script>
+<script>
+const $=id=>document.getElementById(id), css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const usd=v=>v==null?"–":(v<0?"-$":"$")+Math.abs(v).toFixed(2), sgn=v=>v==null?"–":(v<0?"-$":"+$")+Math.abs(v).toFixed(2), money=v=>(v<0?"-$":"$")+Math.abs(Math.round(v)).toLocaleString();
+const ptT=s=>new Date(s*1000).toLocaleTimeString("en-US",{timeZone:"America/Los_Angeles",hour:"numeric",minute:"2-digit"});
+const ptH=s=>parseInt(new Date(s*1000).toLocaleString("en-US",{timeZone:"America/Los_Angeles",hour:"numeric",hourCycle:"h23"}))%24;
+const ptD=s=>new Date(s*1000).toLocaleDateString("en-US",{timeZone:"America/Los_Angeles",weekday:"short"});
+const ptDay=s=>new Date(s*1000).toLocaleDateString("en-CA",{timeZone:"America/Los_Angeles"});
+const color=p=>p<0?css("--neg"):p<40?css("--ok"):p<100?css("--warn"):css("--hot");
+let charts={};
+function draw(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart($(id),cfg);}
+const axes=(yfmt)=>({x:{type:"category",ticks:{color:css("--mut"),maxTicksLimit:8,autoSkip:true},grid:{color:css("--line")}},y:{ticks:{color:css("--mut"),callback:yfmt},grid:{color:css("--line")}}});
+
+async function load(){
+  const L=await (await fetch("../data/live.json?t="+Date.now())).json();
+  const s=L.rt.scarlet||[], last=s[s.length-1], np=L.rt.np15||[], npLast=np[np.length-1];
+  $("upd").textContent="Data refreshed "+new Date(L.generated*1000).toLocaleString("en-US",{timeZone:"America/Los_Angeles",dateStyle:"medium",timeStyle:"short"})+" PT";
+  if(last){
+    const p=last[1],b=npLast?p-npLast[1]:null;
+    $("hP").textContent=usd(p)+"/MWh";$("hP").style.color=color(p);
+    $("hT").textContent=ptT(last[0])+" PT (HE"+(ptH(last[0])+1)+")";
+    $("hB").textContent=sgn(b);
+    $("hS").textContent=p<0?"Negative":p<40?"Low":p<100?"Normal":"High";$("hS").style.color=color(p);
+    $("hero").classList.toggle("negative",p<0);
+    $("cE").textContent=sgn(last[2]);$("cC").textContent=sgn(last[3]);$("cL").textContent=sgn(last[4]);$("cG").textContent=sgn(last[5]);
+    $("cC").style.color=last[3]<-5?css("--hot"):"";
+  }
+  const lab={scarlet:"Scarlet III (N011)",sonrisa:"Sonrisa (ND001)",np15:"NP15 hub",zp26:"ZP26 hub",sp15:"SP15 hub"};
+  $("hubs").innerHTML=Object.keys(lab).filter(k=>L.rt[k]&&L.rt[k].length).map(k=>{const r=L.rt[k][L.rt[k].length-1];return `<div class="tile"><div class="l">${lab[k]}</div><div class="v" style="color:${color(r[1])}">${usd(r[1])}</div><div class="l">congestion ${sgn(r[3])}</div></div>`}).join("");
+  // DA vs RT table
+  const da=L.da.scarlet||[], dnp=Object.fromEntries((L.da.np15||[]).map(x=>[x[0],x[1]]));
+  const rtH={};s.forEach(r=>{const hk=r[0]-(r[0]%3600);(rtH[hk]=rtH[hk]||[]).push(r[1])});
+  const ps=da.map(x=>x[1]).sort((a,b)=>a-b), lo=ps.length>4?ps[3]:-1e9, hi=ps.length>4?ps[ps.length-4]:1e9, now=Date.now()/1000;
+  let day="",dsum=0,dn=0;
+  $("daT").tBodies[0].innerHTML=da.map(([t,p])=>{
+    const a=rtH[t]?rtH[t].reduce((x,y)=>x+y,0)/rtH[t].length:null, cur=now>=t&&now<t+3600, d=ptD(t);
+    if(a!=null){dsum+=a-p;dn++;}
+    const cls=p<0||p<=lo?"n":p>=hi?"h":"", w=Math.min(120,Math.abs(p)*1.6);
+    const row=`<tr class="${cur?"cur":""}"><td>${cur?"▶ ":""}${d!==day?d+" ":""}HE${ptH(t)+1}</td><td class="${cls}">${usd(p)}</td><td>${a==null?"·":(cur?"<i>"+usd(a)+"</i>":usd(a))}</td><td class="${a!=null&&Math.abs(a-p)>=10?"b":""}">${a==null?"":sgn(a-p)}</td><td>${usd(dnp[t])}</td><td style="text-align:left"><span class="bar" style="width:${w}px;background:${color(p)}"></span></td></tr>`;
+    day=d;return row}).join("");
+  $("daSum").textContent=da.length?`DA min ${usd(ps[0])} · max ${usd(ps[ps.length-1])} · ${ps.filter(x=>x<0).length} negative HE${dn?` · RT vs DA so far ${sgn(dsum/dn)}/MWh avg`:""}`:"No day-ahead prices published yet.";
+  // 48h charts
+  const npM=Object.fromEntries(np.map(r=>[r[0],r[1]]));
+  const labels=s.map(r=>ptD(r[0])+" "+ptT(r[0]));
+  draw("c48",{type:"line",data:{labels,datasets:[{label:"Scarlet node",data:s.map(r=>r[1]),borderColor:css("--acc"),pointRadius:0,borderWidth:1.6},{label:"NP15",data:s.map(r=>npM[r[0]]??null),borderColor:css("--np"),pointRadius:0,borderWidth:1.2}]},options:{animation:false,interaction:{mode:"index",intersect:false},plugins:{legend:{labels:{color:css("--ink"),boxWidth:12}}},scales:axes(v=>"$"+v)}});
+  draw("cBasis",{type:"bar",data:{labels,datasets:[{label:"Basis $/MWh",data:s.map(r=>npM[r[0]]!=null?+(r[1]-npM[r[0]]).toFixed(2):null),backgroundColor:s.map(r=>npM[r[0]]!=null&&r[1]-npM[r[0]]<0?css("--neg"):css("--warn"))}]},options:{animation:false,plugins:{legend:{display:false}},scales:axes(v=>"$"+v)}});
+}
+async function sim(){
+  try{
+    const D=await (await fetch("../data/prices.json")).json(), days=BessSim.buildDays(D.series.node).filter(d=>d.complete);
+    if(!days.length)return; const lastDay=days[days.length-1].day, mo=lastDay.slice(0,7), md=days.filter(d=>d.day.startsWith(mo));
+    const P=[["Scarlet III",78,4],["Sonrisa BESS",184,4]], S=[["pf","Perfect foresight (RT)"],["da","DA schedule"],["darts","DA plan, RT settle"]];
+    let rows="";
+    for(const [n,mw,h] of P){const c={P:mw,H:h,eta:.85,degr:5,cycles:1,lo:0,hi:40};const r=BessSim.simulate(md,c);
+      S.forEach(([k,lbl],i)=>{const all=r.S[k], y=all[all.length-1].rev, m=all.reduce((a,x)=>a+x.rev,0);rows+=`<tr><td>${i?"":n+" · "+mw+" MW / "+mw*h+" MWh"}</td><td style="text-align:left">${lbl}</td><td>${money(y)}</td><td>${money(m)}</td></tr>`});}
+    $("simT").tBodies[0].innerHTML=rows;
+    $("simNote").insertAdjacentText("afterbegin",`Last full day ${lastDay}, ${md.length} days in ${mo}. `);
+  }catch(e){$("simNote").textContent="Simulation data unavailable.";}
+}
+load();sim();setInterval(load,5*60*1000);
+</script>
+</body>
+</html>
