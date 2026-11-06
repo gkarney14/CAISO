@@ -1,7 +1,7 @@
 name: Live dashboard (fetch CAISO + deploy Pages)
 on:
   schedule:
-    - cron: "*/10 * * * *"   # GitHub may delay scheduled runs by several minutes
+    - cron: "*/30 * * * *"   # backup only; the ADS-B box triggers a run every 5 minutes
   push:
     branches: [main]
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
   id-token: write
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false   # queue runs; cancelling mid-deploy leaves a stuck Pages deployment
 jobs:
   deploy:
     runs-on: ubuntu-latest
