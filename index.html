@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BESS Arbitrage Simulator</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1c2330;--mut:#5d6778;--line:#e3e6eb;--acc:#0b7285;--pf:#2f9e44;--da:#1971c2;--darts:#e8590c;--thr:#9c36b5;--neg:#1c7ed6}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#11151b;--card:#1a2029;--ink:#e6e9ee;--mut:#9aa4b2;--line:#2b3340;--acc:#3bc9db}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{padding:20px 16px 8px;max-width:1200px;margin:auto}h1{margin:0 0 4px;font-size:22px}header p{margin:0;color:var(--mut)}
+main{max-width:1200px;margin:auto;padding:8px 16px 40px;display:grid;gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.card h2{font-size:15px;margin:0 0 10px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.controls{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px 14px}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:4px}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 8px;width:100%}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}th{font-size:12px;color:var(--mut);font-weight:600}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
+.wrap{overflow-x:auto}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+.note{font-size:12.5px;color:var(--mut)}canvas{max-height:320px}
+.row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.row label{min-width:160px}
+details summary{cursor:pointer;color:var(--acc);font-weight:600}
+</style>
+</head>
+<body>
+<header>
+  <h1>BESS Arbitrage Simulator · Scarlet / Sonrisa cohort</h1>
+  <p id="sub">CAISO energy arbitrage at the cohort pnode vs NP15, four dispatch strategies. Loading price data…</p>
+</header>
+<main>
+  <section class="card">
+    <h2>Setup</h2>
+    <div class="controls">
+      <label>Project<select id="proj"></select></label>
+      <label>Power (MW)<input id="P" type="number" min="1" step="1"></label>
+      <label>Duration (h)<input id="H" type="number" min="1" max="8" step="1"></label>
+      <label>Round-trip efficiency (%)<input id="eta" type="number" min="50" max="100" step="1" value="85"></label>
+      <label>Max cycles / day<select id="cyc"><option>1</option><option>2</option></select></label>
+      <label>Degradation ($/MWh out)<input id="degr" type="number" min="0" step="1" value="5"></label>
+      <label>Settlement location<select id="loc"><option value="node">Cohort pnode</option><option value="np15">NP15 hub</option></select></label>
+      <label>From<input id="from" type="date"></label>
+      <label>To<input id="to" type="date"></label>
+      <label>Trigger: charge at or below ($)<input id="lo" type="number" step="1" value="0"></label>
+      <label>Trigger: discharge at or above ($)<input id="hi" type="number" step="1" value="40"></label>
+    </div>
+    <p class="note" id="sizeNote"></p>
+  </section>
+
+  <section class="card">
+    <h2>Results</h2>
+    <div class="wrap"><table id="res"><thead><tr><th>Strategy</th><th>Revenue</th><th>$/day</th><th>$/kW-month</th><th>Cycles</th><th>Avg charge $/MWh</th><th>Avg discharge $/MWh</th><th>MWh charged at &lt;$0</th><th>% of ceiling</th></tr></thead><tbody></tbody></table></div>
+    <p class="note">Energy arbitrage only: no ancillary services, RA, or capacity value. Perfect foresight is the ceiling; real bidding typically captures 60 to 85% of it.</p>
+  </section>
+
+  <section class="grid2">
+    <div class="card"><h2>Monthly revenue</h2><canvas id="cMonth"></canvas></div>
+    <div class="card"><h2>Cumulative revenue</h2><canvas id="cCum"></canvas></div>
+  </section>
+
+  <section class="card">
+    <h2>Single day dispatch</h2>
+    <div class="row"><label>Day<input id="day" type="date"></label><label>Strategy<select id="dstrat"><option value="pf">Perfect foresight (RT)</option><option value="da">DA schedule</option><option value="darts">DA plan, RT settle</option><option value="thr">Threshold trigger</option></select></label><span class="note" id="dayInfo"></span></div>
+    <canvas id="cDay"></canvas>
+  </section>
+
+  <section class="card">
+    <details><summary>How each strategy works</summary>
+    <ul class="note">
+      <li><b><span class="sw" style="background:var(--pf)"></span>Perfect foresight (RT):</b> exact hourly optimization on the real-time hourly average price, knowing the whole day in advance. Battery starts and ends each day empty. The theoretical ceiling.</li>
+      <li><b><span class="sw" style="background:var(--da)"></span>DA schedule:</b> same optimizer on day-ahead prices, settled at day-ahead. What a clean day-ahead self-schedule earns.</li>
+      <li><b><span class="sw" style="background:var(--darts)"></span>DA plan, RT settle:</b> schedule picked from the day-ahead forecast, but paid real-time prices. The gap to the DA schedule is the cost of forecast error, the same comparison as the "DA fcst vs RT actual" column in Home Assistant.</li>
+      <li><b><span class="sw" style="background:var(--thr)"></span>Threshold trigger:</b> the alert logic as a dispatch rule on 15-minute real-time prices: charge whenever price is at or below the low trigger, discharge at or above the high trigger, state of charge carried across days, discharge capped at cycles × energy per day.</li>
+    </ul>
+    <p class="note">Optimizer: dynamic programming over hourly state of charge (whole hours of energy) and cycle count. Round-trip losses are applied on discharge; degradation cost is charged per MWh discharged. Prices: CAISO OASIS PRC_LMP (DAM, hourly) and PRC_RTPD_LMP (15-min), Pacific time, hour ending convention in charts. Cohort pnode SCARLT_7_N010; all Scarlet and Sonrisa pnodes clear within about $0.15 of each other.</p></details>
+  </section>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="sim.js"></script>
+<script>
+const PROJECTS=[
+ {id:"s3",name:"Scarlet III BESS",P:78,H:4,known:true},
+ {id:"son",name:"Sonrisa BESS",P:184,H:4,known:true},
+ {id:"s1a",name:"Scarlet I-1A BESS",P:78,H:4,known:false},
+ {id:"s1b",name:"Scarlet I-1B BESS",P:78,H:4,known:false},
+ {id:"s2",name:"Scarlet II BESS",P:78,H:4,known:false},
+ {id:"custom",name:"Custom",P:100,H:4,known:false}];
+const STR=[["pf","Perfect foresight (RT)","--pf"],["da","DA schedule","--da"],["darts","DA plan, RT settle","--darts"],["thr","Threshold trigger","--thr"]];
+const $=id=>document.getElementById(id), css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const money=v=>(v<0?"-$":"$")+Math.abs(Math.round(v)).toLocaleString();
+const usd=v=>(v<0?"-$":"$")+Math.abs(v).toFixed(2);
+let DATA,DAYS={},charts={},last=null;
+PROJECTS.forEach(p=>$("proj").add(new Option(p.name,p.id)));
+$("proj").onchange=()=>{const p=PROJECTS.find(x=>x.id==$("proj").value);$("P").value=p.P;$("H").value=p.H;run();};
+$("proj").value="s3";$("P").value=78;$("H").value=4;
+fetch("data/prices.json").then(r=>r.json()).then(d=>{
+  DATA=d; for(const k of ["node","np15"]) DAYS[k]=BessSim.buildDays(d.series[k]);
+  const all=DAYS.node.filter(x=>x.complete).map(x=>x.day);
+  $("from").value=$("from").min=$("to").min=all[0]; $("to").value=$("from").max=$("to").max=all[all.length-1];
+  $("day").min=all[0];$("day").max=all[all.length-1];$("day").value=all[all.length-1];
+  $("sub").textContent=`CAISO energy arbitrage at the cohort pnode vs NP15 · data ${all[0]} to ${all[all.length-1]} · refreshed ${d.generated.slice(0,16).replace("T"," ")} PT`;
+  document.querySelectorAll("input,select").forEach(e=>{if(e.id!=="proj"&&e.id!=="day"&&e.id!=="dstrat")e.addEventListener("change",run)});
+  $("day").onchange=$("dstrat").onchange=drawDay; run();
+});
+function cfg(){return{P:+$("P").value,H:Math.round(+$("H").value),eta:+$("eta").value/100,degr:+$("degr").value,cycles:+$("cyc").value,lo:+$("lo").value,hi:+$("hi").value};}
+function run(){
+  if(!DATA)return; const c=cfg(), p=PROJECTS.find(x=>x.id==$("proj").value);
+  $("sizeNote").textContent=p.known?`${p.name}: ${p.P} MW / ${p.P*p.H} MWh on file.`:(p.id=="custom"?"Custom size.":`${p.name}: size not on file, ${c.P} MW / ${c.P*c.H} MWh is a placeholder. Edit to the actual rating.`);
+  const days=DAYS[$("loc").value].filter(d=>d.day>=$("from").value&&d.day<=$("to").value);
+  last={c,...BessSim.simulate(days,c)};
+  const sums=Object.fromEntries(STR.map(([k])=>[k,BessSim.summarize(last.S[k],c.P,c.H)]));
+  $("res").tBodies[0].innerHTML=STR.map(([k,n,v])=>{const s=sums[k];return`<tr><td><span class="sw" style="background:var(${v})"></span>${n}</td><td>${money(s.rev)}</td><td>${money(s.perDay)}</td><td>$${s.perKwMonth.toFixed(2)}</td><td>${s.cycles.toFixed(0)}</td><td>${usd(s.avgCh)}</td><td>${usd(s.avgDis)}</td><td>${Math.round(s.negMWh).toLocaleString()}</td><td>${sums.pf.rev?(100*s.rev/sums.pf.rev).toFixed(0)+"%":"–"}</td></tr>`}).join("");
+  // monthly + cumulative
+  const months=[...new Set(last.days.map(d=>d.day.slice(0,7)))];
+  const ds=(k)=>{const m={};last.S[k].forEach(r=>{const mo=r.day.slice(0,7);m[mo]=(m[mo]||0)+r.rev});return months.map(x=>Math.round(m[x]||0))};
+  const cum=(k)=>{let a=0;return last.S[k].map(r=>Math.round(a+=r.rev))};
+  draw("cMonth","bar",months,STR.map(([k,n,v])=>({label:n,data:ds(k),backgroundColor:css(v)})));
+  draw("cCum","line",last.days.map(d=>d.day),STR.map(([k,n,v])=>({label:n,data:cum(k),borderColor:css(v),pointRadius:0,borderWidth:2})));
+  drawDay();
+}
+function draw(id,type,labels,datasets,extra={}){
+  if(charts[id])charts[id].destroy();
+  charts[id]=new Chart($(id),{type,data:{labels,datasets},options:Object.assign({responsive:true,animation:false,interaction:{mode:"index",intersect:false},plugins:{legend:{labels:{color:css("--ink"),boxWidth:12}}},scales:{x:{ticks:{color:css("--mut"),maxTicksLimit:12},grid:{color:css("--line")}},y:{ticks:{color:css("--mut"),callback:v=>"$"+Number(v).toLocaleString()},grid:{color:css("--line")}}}},extra)});
+}
+function drawDay(){
+  if(!last)return; const k=$("dstrat").value, day=$("day").value;
+  const i=last.days.findIndex(d=>d.day==day); if(i<0){$("dayInfo").textContent="No complete data for that day in the selected range.";return;}
+  const d=last.days[i], r=last.S[k][i], c=last.c, he=[...Array(24)].map((_,h)=>"HE"+(h+1));
+  let soc;
+  if(k=="thr") soc=r.socTrace.map(v=>+(100*v/(c.P*c.H)).toFixed(0));
+  else {let s=0;soc=r.act.map(a=>{s+=a;return Math.round(100*s/c.H)});}
+  const bars=k=="thr"?[]:[{type:"bar",label:"Dispatch (MW, + charge)",data:r.act.map(a=>a*c.P),backgroundColor:r.act.map(a=>a>0?css("--neg"):css("--darts")),yAxisID:"mw",order:3}];
+  $("dayInfo").textContent=`${day}: ${money(r.rev)} · DA min ${usd(Math.min(...d.da))} max ${usd(Math.max(...d.da))}`;
+  draw("cDay","line",he,[
+    {label:"DA price",data:d.da.map(v=>+v.toFixed(2)),borderColor:css("--da"),pointRadius:2,borderWidth:2,yAxisID:"y",order:1},
+    {label:"RT price (hourly avg)",data:d.rtH.map(v=>+v.toFixed(2)),borderColor:css("--darts"),borderDash:[5,4],pointRadius:2,borderWidth:2,yAxisID:"y",order:1},
+    {label:"State of charge (%)",data:soc,borderColor:css("--pf"),backgroundColor:css("--pf")+"22",fill:true,stepped:true,pointRadius:0,borderWidth:1.5,yAxisID:"soc",order:2},
+    ...bars],{scales:{x:{ticks:{color:css("--mut")},grid:{color:css("--line")}},y:{position:"left",ticks:{color:css("--mut"),callback:v=>"$"+v},grid:{color:css("--line")}},soc:{position:"right",min:0,max:100,ticks:{color:css("--mut"),callback:v=>v+"%"},grid:{display:false}},mw:{display:false}}});
+}
+</script>
+</body>
+</html>
