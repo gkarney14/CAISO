@@ -219,6 +219,8 @@ async function sim(){
   }catch(e){$("simNote").textContent="Simulation data unavailable.";}
 }
 load();sim();setInterval(load,5*60*1000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&LAST&&Date.now()/1000-LAST.generated>360)load();});
+setInterval(()=>{if(LAST){const a=(Date.now()/1000-LAST.generated)/60;$("dot").classList.toggle("stale",a>20);}},60000);
 </script>
 </body>
 </html>
