@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scarlet / Sonrisa Node Prices</title>
+<link rel="icon" id="fav" href="data:,">
+<meta name="theme-color" content="#0b5f75">
 <meta name="description" content="Live CAISO prices at the Scarlet / Sonrisa pnodes vs NP15: real-time LMP and components, day-ahead forecast vs real-time actual by hour ending, and simulated BESS arbitrage.">
 <style>
 /* Layout: one column of cards; summary first, detail below. */
@@ -171,6 +173,11 @@ const axes=(yfmt)=>({x:{type:"category",ticks:{color:css("--mut"),maxTicksLimit:
 
 async function load(){
   const L=await (await fetch("../data/live.json?t="+Date.now())).json(); LAST=L; render(L);}
+function favicon(p){
+  const c=p==null?"#0b7285":p<0?"#1c7ed6":p<40?"#2f9e44":p<100?"#e67700":"#e03131";
+  const svg=`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='${c}'/><path d='M36 6 14 38h14l-4 20 26-34H35z' fill='#fff'/></svg>`;
+  $("fav").href="data:image/svg+xml,"+encodeURIComponent(svg);
+}
 function render(L){
   document.querySelectorAll(".selName").forEach(e=>e.textContent=NAMES[SEL]);
   const age=(Date.now()/1000-L.generated)/60; $("dot").classList.toggle("stale",age>20);
@@ -183,6 +190,7 @@ function render(L){
     $("hB").textContent=sgn(b);
     $("hS").textContent=p<0?"Negative":p<40?"Low":p<100?"Normal":"High";$("hS").style.color=color(p);
     $("hero").classList.toggle("negative",p<0);
+    const short=NAMES[SEL].replace(" BESS","").replace("Scarlet ","S");document.title=`${p<0?"▼ ":""}${usd(p)} · ${NAMES[SEL]} · HE${ptH(last[0])+1}`;favicon(p);
     $("cE").textContent=sgn(last[2]);$("cC").textContent=sgn(last[3]);$("cL").textContent=sgn(last[4]);$("cG").textContent=sgn(last[5]);
     $("cC").style.color=last[3]<-5?css("--hot"):"";
   }
