@@ -46,6 +46,8 @@ th.irr,td.irr{background:var(--irrbg)}td.ok{color:var(--ok);font-weight:700}
 #daT td,#daT th{padding:5px 6px}#daT tr.grp th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:none;padding-bottom:0;text-align:center}
 #daT th.gi{border-left:2px solid var(--line)}#daT tr>*:nth-child(6){border-left:2px solid var(--line)}#daT tr.grp>*:nth-child(3){border-left:2px solid var(--line)}
 #daT tr>*:last-child{padding-left:10px}#daT .bar{max-width:100%}
+.conf{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:650;border:1px solid currentColor}
+.spark{display:flex;align-items:flex-end;gap:2px;height:30px}.spark i{display:block;width:7px;border-radius:2px 2px 0 0;background:var(--line)}.spark i.ok{background:var(--ok)}
 </style>
 </head>
 <body>
@@ -56,7 +58,7 @@ th.irr,td.irr{background:var(--irrbg)}td.ok{color:var(--ok);font-weight:700}
       <h1>Scarlet / Sonrisa Node Prices</h1>
       <div class="status"><span class="dot" id="dot"></span><span id="upd">Loading CAISO data…</span></div>
     </div>
-    <nav class="links"><a href="#forecast">Forecast</a><a href="#sim">Arbitrage</a><a href="#glossary">Glossary</a><a href="../">Simulator</a></nav>
+    <nav class="links"><a href="#forecast">Forecast</a><a href="#outlook">5-day</a><a href="#sim">Arbitrage</a><a href="#glossary">Glossary</a><a href="../">Simulator</a></nav>
   </header>
 
   <section class="card hero" id="hero">
@@ -109,6 +111,13 @@ th.irr,td.irr{background:var(--irrbg)}td.ok{color:var(--ok);font-weight:700}
 <thead><tr class="grp"><th></th><th colspan="4" class="gp">Price · $/MWh</th><th colspan="2" class="irr gi">Irradiance · W/m²</th><th colspan="2" class="irr gi">Weather</th><th></th></tr>
 <tr><th>HE (PT)</th><th>DA fcst</th><th>RT actual</th><th>Δ</th><th>NP15 DA</th><th class="irr">GHI</th><th class="irr">POA</th><th class="irr">Cloud</th><th class="irr">Temp</th><th style="text-align:left">Shape</th></tr></thead><tbody></tbody></table></div>
     <p class="note">Irradiance: Open-Meteo forecast (NOAA HRRR/NBM blend) at the Scarlet site (36.598, -120.362), hourly means for each hour ending. GHI is global horizontal; POA is modeled for a single-axis tracker (N-S axis, ±60°, backtracking) with pvlib; <b>green</b> POA meets the test threshold. Forecast only, not site met-station data. RT actual is the hourly average of 5-minute RTM prices; the current hour is partial. <span class="n">Blue</span> marks negative prices and the 4 cheapest DA hours; <span class="h">red</span> marks the 4 priciest. Tomorrow's day-ahead prices post around 1 to 2 pm Pacific.</p>
+  </section>
+
+  <section class="card" id="outlook">
+    <h2>5-day irradiance outlook · Scarlet site</h2>
+    <p class="note" id="olNote"></p>
+    <div class="tw"><table id="olT"><thead><tr><th>Day</th><th>Confidence</th><th>Peak POA</th><th>HE at/above threshold</th><th>Daily POA</th><th>Daytime cloud</th><th>High</th><th style="text-align:left">Hourly POA (HE6 to HE19)</th></tr></thead><tbody></tbody></table></div>
+    <p class="note">POA = modeled single-axis tracker irradiance, W/m²; daily POA in kWh/m². Confidence reflects forecast lead time: HRRR-driven days 1 to 2 are dependable, days 3 to 4 show the trend, day 5 is a rough guide. Threshold follows the Test POA box above.</p>
   </section>
 
   <section class="grid2">
@@ -186,6 +195,22 @@ function favicon(p){
   const svg=`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='${c}'/><path d='M36 6 14 38h14l-4 20 26-34H35z' fill='#fff'/></svg>`;
   $("fav").href="data:image/svg+xml,"+encodeURIComponent(svg);
 }
+
+function outlook(L){
+  const pmin=+($("poaMin").value||600), byDay={};
+  (L.irr||[]).forEach(r=>{const k=ptDay(r[0]);(byDay[k]=byDay[k]||[]).push(r)});
+  const today=ptDay(Date.now()/1000), days=Object.keys(byDay).sort().filter(d=>d>=today).slice(0,5);
+  const CF=[["High","var(--ok)"],["High","var(--ok)"],["Fair","var(--warn)"],["Fair","var(--warn)"],["Low","var(--hot)"]];
+  $("olT").tBodies[0].innerHTML=days.map((d,i)=>{
+    const rs=byDay[d], day=rs.filter(r=>r[2]>20), pk=Math.max(0,...rs.map(r=>r[2])), ok=rs.filter(r=>r[2]>=pmin).map(r=>ptH(r[0])+1);
+    const kwh=rs.reduce((a,r)=>a+r[2],0)/1000, cl=day.length?Math.round(day.reduce((a,r)=>a+r[4],0)/day.length):0, hi=Math.round(Math.max(...rs.map(r=>r[5])));
+    const rng=ok.length?(ok.length===ok[ok.length-1]-ok[0]+1?`HE${ok[0]} to HE${ok[ok.length-1]}`:ok.map(h=>"HE"+h).join(", "))+` (${ok.length} h)`:"None";
+    const bars=rs.filter(r=>{const h=ptH(r[0])+1;return h>=6&&h<=19}).map(r=>`<i class="${r[2]>=pmin?"ok":""}" style="height:${Math.max(2,Math.round(r[2]/1000*30))}px" title="HE${ptH(r[0])+1}: ${r[2]} W/m²"></i>`).join("");
+    const lbl=new Date(rs[0][0]*1000).toLocaleDateString("en-US",{timeZone:"America/Los_Angeles",weekday:"short",month:"short",day:"numeric"});
+    return `<tr><td>${lbl}</td><td><span class="conf" style="color:${CF[i][1]}">${CF[i][0]}</span></td><td class="${pk>=pmin?"ok":""}">${pk}</td><td style="text-align:left">${rng}</td><td>${kwh.toFixed(1)}</td><td>${cl}%</td><td>${hi}°F</td><td style="text-align:left"><div class="spark">${bars}</div></td></tr>`}).join("");
+  const best=days.map(d=>[d,byDay[d].filter(r=>r[2]>=pmin).length]).filter(x=>x[1]).sort((a,b)=>b[1]-a[1])[0];
+  $("olNote").textContent=best?`Most test hours at ≥${pmin} W/m²: ${new Date(best[0]+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})} (${best[1]} h).`:`No hours forecast at or above ${pmin} W/m² in the next 5 days.`;
+}
 function render(L){
   document.querySelectorAll(".selName").forEach(e=>e.textContent=NAMES[SEL]);
   const age=(Date.now()/1000-L.generated)/60; $("dot").classList.toggle("stale",age>20);
@@ -218,6 +243,7 @@ function render(L){
     day=d;return row}).join("");
   $("poaSum").textContent=okH.length?`${okH.length} HE at or above ${pmin} W/m² POA: ${okH.join(", ")}`:`No hours forecast at or above ${pmin} W/m² POA.`;
   $("daSum").textContent=da.length?`DA min ${usd(ps[0])} · max ${usd(ps[ps.length-1])} · ${ps.filter(x=>x<0).length} negative HE${dn?` · RT vs DA so far ${sgn(dsum/dn)}/MWh avg`:""}`:"No day-ahead prices published yet.";
+  outlook(L);
   // 48h charts
   const npM=Object.fromEntries(np.map(r=>[r[0],r[1]]));
   const labels=s.map(r=>ptD(r[0])+" "+ptT(r[0]));

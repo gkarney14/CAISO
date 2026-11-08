@@ -52,7 +52,7 @@ try:
     import pandas as pd, pvlib
     q = (f"https://api.open-meteo.com/v1/forecast?latitude={SITE[0]}&longitude={SITE[1]}"
          "&hourly=shortwave_radiation,direct_normal_irradiance,diffuse_radiation,cloud_cover,temperature_2m"
-         "&temperature_unit=fahrenheit&timezone=UTC&forecast_days=3&past_days=1")
+         "&temperature_unit=fahrenheit&timezone=UTC&forecast_days=7&past_days=1")
     h = json.load(urllib.request.urlopen(q, timeout=60))["hourly"]
     end = pd.to_datetime(h["time"], utc=True)            # values are means over the hour ending at this time
     mid = end - pd.Timedelta(minutes=30)
