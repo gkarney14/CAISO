@@ -96,6 +96,29 @@ try:
                    "midday_slope": round(float(np.mean([coef[h][1] for h in range(10, 15) if h in coef])) * 100, 2) if coef else None}
 except Exception as ex:
     print("price model skipped:", ex)
+# --- 1-minute POA counts per hour (>=400, >=600 W/m2) from Open-Meteo 15-min forecast ---
+pts = {}
+try:
+    import pandas as pd, numpy as np, pvlib
+    q = (f"https://api.open-meteo.com/v1/forecast?latitude={SITE[0]}&longitude={SITE[1]}"
+         "&minutely_15=shortwave_radiation,direct_normal_irradiance,diffuse_radiation&timezone=UTC&forecast_days=4")
+    m = json.load(urllib.request.urlopen(q, timeout=60))["minutely_15"]
+    end = pd.to_datetime(m["time"], utc=True); mid = end - pd.Timedelta(minutes=7.5)      # 15-min means ending at label
+    sp = pvlib.solarposition.get_solarposition(mid, SITE[0], SITE[1])
+    trk = pvlib.tracking.singleaxis(sp["apparent_zenith"], sp["azimuth"], axis_tilt=0, axis_azimuth=180, max_angle=60, backtrack=True, gcr=0.35)
+    g, dn, df = (np.nan_to_num(np.array(m[k], dtype=float)) for k in ("shortwave_radiation", "direct_normal_irradiance", "diffuse_radiation"))
+    poa15 = pvlib.irradiance.get_total_irradiance(trk["surface_tilt"].fillna(0), trk["surface_azimuth"].fillna(180),
+               sp["apparent_zenith"].values, sp["azimuth"].values, dn, g, df, albedo=0.2)["poa_global"].fillna(0).clip(lower=0)
+    s15 = pd.Series(poa15.values, index=mid)
+    minute = pd.date_range(mid[0].floor("h"), mid[-1].ceil("h"), freq="1min", inclusive="left") + pd.Timedelta(seconds=30)
+    p1 = s15.reindex(s15.index.union(minute)).interpolate(method="time", limit_area="inside").reindex(minute).fillna(0)
+    hr = (p1.index - pd.Timedelta(seconds=30)).floor("h")
+    for h, grp in p1.groupby(hr):
+        pts[int(h.timestamp())] = [int((grp >= 400).sum()), int((grp >= 600).sum())]
+except Exception as ex:
+    print("1-min counts skipped:", ex)
+for r in fc.get("rows", []):
+    r += pts.get(r[0], [None, None])
 out = {"generated": int(time.time()), "fc": fc, "irr_site": {"lat": SITE[0], "lon": SITE[1], "tracker": "1-axis N-S, +/-60 deg, backtracking, GCR 0.35"}, "irr": irr,
        "rt": {n: [[t, d.get("LMP"), d.get("MCE"), d.get("MCC"), d.get("MCL"), d.get("MGHG")] for t, d in sorted(v.items()) if "LMP" in d] for n, v in rt.items()},
        "da": {n: [[t, p] for t, p in sorted(v.items())] for n, v in da.items()}}

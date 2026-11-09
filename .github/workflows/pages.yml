@@ -36,3 +36,10 @@ jobs:
         with: { path: _site }
       - id: deployment
         uses: actions/deploy-pages@v4
+        continue-on-error: true      # a previous deployment may still be finalizing
+      - name: Wait before retry
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 75
+      - id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v4

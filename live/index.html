@@ -60,7 +60,7 @@ th.irr,td.irr{background:var(--irrbg)}td.ok{color:var(--ok);font-weight:700}
       <h1>Scarlet / Sonrisa Node Prices</h1>
       <div class="status"><span class="dot" id="dot"></span><span id="upd">Loading CAISO data…</span></div>
     </div>
-    <nav class="links"><a href="#forecast">Forecast</a><a href="#outlook">5-day</a><a href="#fc3">3-day PV & price</a><a href="#sim">Arbitrage</a><a href="#glossary">Glossary</a><a href="../">Simulator</a></nav>
+    <nav class="links"><a href="#forecast">Forecast</a><a href="#outlook">5-day</a><a href="#fc3">3-day PV & points</a><a href="#sim">Arbitrage</a><a href="#glossary">Glossary</a><a href="../">Simulator</a></nav>
   </header>
 
   <section class="card hero" id="hero">
@@ -132,9 +132,9 @@ th.irr,td.irr{background:var(--irrbg)}td.ok{color:var(--ok);font-weight:700}
   </section>
 
   <section class="card" id="fc3">
-    <h2>3-day forecast · PV output and node price</h2>
+    <h2>3-day forecast · PV output and test data points</h2>
     <div class="pick" style="margin-bottom:8px"><label>Day</label><div id="fcTabs" class="links fctabs"></div><span class="note" id="fcSum"></span></div>
-    <div class="tw"><table id="fcT"><thead><tr><th>HE (PT)</th><th>POA W/m²</th><th>HSL MW</th><th>Price $/MWh</th><th>Source</th><th>Value $</th><th style="text-align:left">Output</th></tr></thead><tbody></tbody></table></div>
+    <div class="tw"><table id="fcT"><thead><tr><th>HE (PT)</th><th>POA W/m²</th><th>HSL MW</th><th title="Forecast minutes in the hour with POA at or above 400 W/m²">Min ≥400</th><th title="Forecast minutes in the hour with POA at or above 600 W/m²">Min ≥600</th><th style="text-align:left">Output</th></tr></thead><tbody></tbody></table></div>
     <p class="note" id="fcNote"></p>
   </section>
 
@@ -246,11 +246,13 @@ function fc3(L){
   $("fcTabs").innerHTML=days.map(d=>`<button data-d="${d}" class="${d===FCDAY?"on":""}">${new Date(d+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</button>`).join("");
   $("fcTabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{FCDAY=b.dataset.d;fc3(LAST)});
   const rows=F.filter(r=>ptDay(r[0])===FCDAY); let mwh=0,val=0,anyDA=false,anyM=false; const peak=Math.max(1,...rows.map(r=>mw(r[1])||0));
-  $("fcT").tBodies[0].innerHTML=rows.map(([t,poa,model,da])=>{const m=mw(poa), p=da!=null?da:model; if(da!=null)anyDA=true; else anyM=true; if(m!=null){mwh+=m; if(p!=null) val+=m*p;}
-    return `<tr><td>HE${ptH(t)+1}</td><td>${poa}</td><td class="b">${m==null?"set DC":m.toFixed(0)}</td><td class="${da==null?"m":""}${p!=null&&p<0?" n":""}">${p==null?"·":usd(p)}</td><td style="text-align:center">${da!=null?"DA":"model"}</td><td class="${m!=null&&p!=null&&m*p<0?"n":""}">${m==null||p==null?"·":money(m*p)}</td><td style="text-align:left"><span class="bar" style="width:${m?Math.round(110*m/peak):0}px;background:var(--ok)"></span></td></tr>`}).join("");
-  $("fcSum").textContent=pp.dc?`${NAMES[pvKey]}: ≈ ${Math.round(mwh).toLocaleString()} MWh · value ≈ ${money(val)} · avg ${mwh?usd(val/mwh):"–"}/MWh`:`Enter ${NAMES[pvKey]} DC rating in the HSL model to size output.`;
+  let n4=0,n6=0;
+  $("fcT").tBodies[0].innerHTML=rows.map(([t,poa,model,da,c4,c6])=>{const m=mw(poa); if(m!=null)mwh+=m; if(c4!=null){n4+=c4;n6+=c6;}
+    const cl=(c,full)=>c==null?"·":`<span class="${c>=full?"ok":""}">${c}</span>`;
+    return `<tr><td>HE${ptH(t)+1}</td><td>${poa}</td><td class="b">${m==null?"set DC":m.toFixed(0)}</td><td>${cl(c4,60)}</td><td>${cl(c6,60)}</td><td style="text-align:left"><span class="bar" style="width:${m?Math.round(110*m/peak):0}px;background:var(--ok)"></span></td></tr>`}).join("");
+  $("fcSum").textContent=`${n4} min ≥400 W/m² · ${n6} min ≥600 W/m²`+(pp.dc?` · ${NAMES[pvKey]} ≈ ${Math.round(mwh).toLocaleString()} MWh`:"");
   const M=L.fc.model||{};
-  $("fcNote").textContent=`Output: HSL model for ${NAMES[pvKey]}${PV[saved]?"":" (select a PV node to change site)"}, from the irradiance forecast. Price: published CAISO day-ahead where available (DA); otherwise a per-hour regression of the node's DA price on forecast POA over the last ${M.days||30} days (model, italic; typical error ±$${M.mae??"?"}/MWh, midday ≈ ${M.midday_slope??"?"} $/MWh per 100 W/m²). Model prices ignore load, gas, outages and congestion changes, so treat them as a guide.`;
+  $("fcNote").textContent=`Output: HSL model for ${NAMES[pvKey]}${PV[saved]?"":" (select a PV node to change site)"}, from the hourly irradiance forecast. Data points: forecast minutes per hour with modeled tracker POA at or above 400 and 600 W/m², from Open-Meteo 15-minute irradiance interpolated to 1 minute (green = all 60). Clear-sky days are reliable; passing cloud makes minute counts the least certain part of the forecast.`;
 }
 function render(L){
   document.querySelectorAll(".selName").forEach(e=>e.textContent=NAMES[SEL]);
