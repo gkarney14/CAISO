@@ -48,7 +48,7 @@ th.irr,td.irr{background:var(--irrbg)}td.ok{color:var(--ok);font-weight:700}
 #daT tr>*:last-child{padding-left:10px}#daT .bar{max-width:100%}
 .conf{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:650;border:1px solid currentColor}
 .spark{display:flex;align-items:flex-end;gap:2px;height:30px}.spark i{display:block;width:7px;border-radius:2px 2px 0 0;background:var(--line)}.spark i.ok{background:var(--ok)}
-.hin{width:76px;font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:4px 6px}#daT td.hsl,#daT th.hsl{background:var(--irrbg);font-weight:650}
+.hin{width:76px;font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:4px 6px}#daT td.hsl,#daT th.hsl{background:var(--irrbg);font-weight:650;text-align:right;padding-left:4px;padding-right:8px}#daT th.hslh.gi{text-align:center;padding-left:2px;padding-right:2px}#daT col.hslc{width:58px}
 </style>
 </head>
 <body>
@@ -117,7 +117,7 @@ th.irr,td.irr{background:var(--irrbg)}td.ok{color:var(--ok);font-weight:700}
       <span class="note">POI cap</span><input id="hCAP" type="number" step="1" class="hin"><span class="note">MW</span>
       <span class="note" id="hslSum"></span>
     </div>
-    <div class="tw"><table id="daT"><colgroup><col class="cHE"><col class="cP"><col class="cP"><col class="cP"><col class="cP"><col class="cI"><col class="cI"><col class="cW"><col class="cW"><col class="cP hslc"><col></colgroup>
+    <div class="tw"><table id="daT"><colgroup><col class="cHE"><col class="cP"><col class="cP"><col class="cP"><col class="cP"><col class="cI"><col class="cI"><col class="cW"><col class="cW"><col class="hslc"><col></colgroup>
 <thead><tr class="grp"><th></th><th colspan="4" class="gp">Price · $/MWh</th><th colspan="2" class="irr gi">Irradiance · W/m²</th><th colspan="2" class="irr gi">Weather</th><th class="irr gi hslh">HSL</th><th></th></tr>
 <tr><th>HE (PT)</th><th>DA fcst</th><th>RT actual</th><th>Δ</th><th>NP15 DA</th><th class="irr">GHI</th><th class="irr">POA</th><th class="irr">Cloud</th><th class="irr">Temp</th><th class="hsl hslh">MW</th><th style="text-align:left">Shape</th></tr></thead><tbody></tbody></table></div>
     <p class="note">HSL (PV sites only): estimated High Sustainable Limit = DC rating × forecast POA ÷ 1000 × (1 + bifacial) × (1 − temperature derate) × (1 − other losses), capped at the POI limit. Model inputs are editable and saved in your browser per site; it is a planning estimate, not the CAISO VER forecast. Irradiance: Open-Meteo forecast (NOAA HRRR/NBM blend) at the Scarlet site (36.598, -120.362), hourly means for each hour ending. GHI is global horizontal; POA is modeled for a single-axis tracker (N-S axis, ±60°, backtracking) with pvlib; <b>green</b> POA meets the test threshold. Forecast only, not site met-station data. RT actual is the hourly average of 5-minute RTM prices; the current hour is partial. <span class="n">Blue</span> marks negative prices and the 4 cheapest DA hours; <span class="h">red</span> marks the 4 priciest. Tomorrow's day-ahead prices post around 1 to 2 pm Pacific.</p>
@@ -229,7 +229,7 @@ function hslSave(){const p={dc:+$("hDC").value||0,bf:+$("hBF").value,td:+$("hTD"
 function hslMW(poa){const p=hslParams();if(!p.dc)return null;let mw=p.dc*poa/1000*(1+p.bf/100)*(1-p.td/100)*(1-p.ol/100);if(p.cap)mw=Math.min(mw,p.cap);return mw;}
 function render(L){
   document.querySelectorAll(".selName").forEach(e=>e.textContent=NAMES[SEL]);
-  const isPV=!!PV[SEL]; $("hslBox").hidden=!isPV; document.querySelectorAll(".hslh").forEach(e=>e.style.display=isPV?"":"none"); document.querySelectorAll("col.hslc").forEach(e=>e.style.width=isPV?"86px":"0px"); if(isPV&&$("hslBox").dataset.sel!==SEL){hslLoad();$("hslBox").dataset.sel=SEL;}
+  const isPV=!!PV[SEL]; $("hslBox").hidden=!isPV; document.querySelectorAll(".hslh").forEach(e=>e.style.display=isPV?"":"none"); document.querySelectorAll("col.hslc").forEach(e=>e.style.width=isPV?"58px":"0px"); if(isPV&&$("hslBox").dataset.sel!==SEL){hslLoad();$("hslBox").dataset.sel=SEL;}
   let hslMax=0,hslMWh=0;
   const age=(Date.now()/1000-L.generated)/60; $("dot").classList.toggle("stale",age>20);
   const s=L.rt[SEL]||[], last=s[s.length-1], np=L.rt.np15||[], npLast=np[np.length-1];
