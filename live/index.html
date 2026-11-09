@@ -133,6 +133,7 @@ th.irr,td.irr{background:var(--irrbg)}td.ok{color:var(--ok);font-weight:700}
 
   <section class="card" id="fc3">
     <h2>3-day forecast · PV output and test data points</h2>
+    <div class="pick" id="fcTot" style="margin-bottom:8px;font-size:15px"></div>
     <div class="pick" style="margin-bottom:8px"><label>Day</label><div id="fcTabs" class="links fctabs"></div><span class="note" id="fcSum"></span></div>
     <div class="tw"><table id="fcT"><thead><tr><th>HE (PT)</th><th>POA W/m²</th><th>HSL MW</th><th title="Forecast minutes in the hour with POA at or above 400 W/m²">Min ≥400</th><th title="Forecast minutes in the hour with POA at or above 600 W/m²">Min ≥600</th><th style="text-align:left">Output</th></tr></thead><tbody></tbody></table></div>
     <p class="note" id="fcNote"></p>
@@ -242,7 +243,10 @@ function fc3(L){
   const pvKey=PV[SEL]?SEL:"sonrisa_pv", saved=SEL; 
   const pp=(()=>{let p=Object.assign({},PV[pvKey]);try{const v=JSON.parse(localStorage.getItem("hsl_"+pvKey)||"null");if(v)Object.assign(p,v)}catch(e){}return p})();
   const mw=poa=>{if(!pp.dc)return null;let m=pp.dc*poa/1000*(1+pp.bf/100)*(1-pp.td/100)*(1-pp.ol/100);return pp.cap?Math.min(m,pp.cap):m};
-  const days=[...new Set(F.map(r=>ptDay(r[0])))].sort().slice(0,4); if(!FCDAY||!days.includes(FCDAY))FCDAY=days[Math.min(1,days.length-1)];
+  const days=[...new Set(F.map(r=>ptDay(r[0])))].sort(); const tdy=ptDay(Date.now()/1000); if(!FCDAY||!days.includes(FCDAY))FCDAY=days.includes(tdy)?tdy:days[days.length-1];
+  {let a4=0,a6=0,f4=0,f6=0,nowS=Date.now()/1000; for(const r of F){if(r[4]==null)continue; if(r[0]+3600<=nowS){a4+=r[4];a6+=r[5]}else{f4+=r[4];f6+=r[5]}}
+   const d0=new Date(days[0]+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"});
+   $("fcTot").innerHTML=`<b>Totalizer since ${d0}</b>&nbsp; Min ≥400: <b>${(a4+f4).toLocaleString()}</b> (${a4.toLocaleString()} elapsed + ${f4.toLocaleString()} forecast) &nbsp;·&nbsp; Min ≥600: <b>${(a6+f6).toLocaleString()}</b> (${a6.toLocaleString()} elapsed + ${f6.toLocaleString()} forecast)`;}
   $("fcTabs").innerHTML=days.map(d=>`<button data-d="${d}" class="${d===FCDAY?"on":""}">${new Date(d+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</button>`).join("");
   $("fcTabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{FCDAY=b.dataset.d;fc3(LAST)});
   const rows=F.filter(r=>ptDay(r[0])===FCDAY); let mwh=0,val=0,anyDA=false,anyM=false; const peak=Math.max(1,...rows.map(r=>mw(r[1])||0));

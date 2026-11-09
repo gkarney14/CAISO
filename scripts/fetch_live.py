@@ -69,7 +69,8 @@ try:
 except Exception as ex:
     print("irradiance skipped:", ex)
 # --- Modeled node price from irradiance: per-HE linear fit of DA price on POA, last 30 days ---
-fc = {"model": None, "rows": []}
+FC_START = PT.localize(dt.datetime(2026, 11, 6)) if hasattr(PT, "localize") else dt.datetime(2026, 11, 6, tzinfo=PT)  # totalizer start
+fc = {"model": None, "rows": [], "start": int(FC_START.timestamp())}
 try:
     import numpy as np
     P = json.load(open("data/prices.json"))["series"]["node"]["da"]     # [[epoch_start, price]], cohort pnode
@@ -88,7 +89,7 @@ try:
             coef[h] = (float(a), float(b)); err += list(np.abs(a + b * X - Y))
     da_known = set(pmap)
     for t, poa in sorted(imap.items()):
-        if t < int(today.timestamp()) or t >= int(today.timestamp()) + 4 * 86400: continue
+        if t < int(FC_START.timestamp()) or t >= int(today.timestamp()) + 4 * 86400: continue
         h = dt.datetime.fromtimestamp(t, PT).hour
         model = round(coef[h][0] + coef[h][1] * poa, 2) if h in coef else None
         fc["rows"].append([t, poa, model, pmap.get(t)])
@@ -101,7 +102,8 @@ pts = {}
 try:
     import pandas as pd, numpy as np, pvlib
     q = (f"https://api.open-meteo.com/v1/forecast?latitude={SITE[0]}&longitude={SITE[1]}"
-         "&minutely_15=shortwave_radiation,direct_normal_irradiance,diffuse_radiation&timezone=UTC&forecast_days=4")
+         "&minutely_15=shortwave_radiation,direct_normal_irradiance,diffuse_radiation&timezone=UTC&forecast_days=4"
+         f"&past_days={max(0, (today.date() - FC_START.date()).days + 1)}")
     m = json.load(urllib.request.urlopen(q, timeout=60))["minutely_15"]
     end = pd.to_datetime(m["time"], utc=True); mid = end - pd.Timedelta(minutes=7.5)      # 15-min means ending at label
     sp = pvlib.solarposition.get_solarposition(mid, SITE[0], SITE[1])
