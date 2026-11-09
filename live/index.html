@@ -48,6 +48,7 @@ th.irr,td.irr{background:var(--irrbg)}td.ok{color:var(--ok);font-weight:700}
 #daT tr>*:last-child{padding-left:10px}#daT .bar{max-width:100%}
 .conf{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:650;border:1px solid currentColor}
 .spark{display:flex;align-items:flex-end;gap:2px;height:30px}.spark i{display:block;width:7px;border-radius:2px 2px 0 0;background:var(--line)}.spark i.ok{background:var(--ok)}
+.hin{width:76px;font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:4px 6px}#daT td.hsl,#daT th.hsl{background:var(--irrbg);font-weight:650}
 </style>
 </head>
 <body>
@@ -107,10 +108,19 @@ th.irr,td.irr{background:var(--irrbg)}td.ok{color:var(--ok);font-weight:700}
     <h2>Day-ahead forecast vs real-time actual · <span class="selName">node</span> · hour ending, Pacific</h2>
     <p class="note" id="daSum"></p>
     <div class="pick" style="margin-bottom:8px"><label for="poaMin">Test POA threshold (W/m²)</label><input id="poaMin" type="number" min="0" step="50" value="600" style="width:90px;font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:5px 8px"><span class="note" id="poaSum"></span></div>
-    <div class="tw"><table id="daT"><colgroup><col class="cHE"><col class="cP"><col class="cP"><col class="cP"><col class="cP"><col class="cI"><col class="cI"><col class="cW"><col class="cW"><col></colgroup>
-<thead><tr class="grp"><th></th><th colspan="4" class="gp">Price · $/MWh</th><th colspan="2" class="irr gi">Irradiance · W/m²</th><th colspan="2" class="irr gi">Weather</th><th></th></tr>
-<tr><th>HE (PT)</th><th>DA fcst</th><th>RT actual</th><th>Δ</th><th>NP15 DA</th><th class="irr">GHI</th><th class="irr">POA</th><th class="irr">Cloud</th><th class="irr">Temp</th><th style="text-align:left">Shape</th></tr></thead><tbody></tbody></table></div>
-    <p class="note">Irradiance: Open-Meteo forecast (NOAA HRRR/NBM blend) at the Scarlet site (36.598, -120.362), hourly means for each hour ending. GHI is global horizontal; POA is modeled for a single-axis tracker (N-S axis, ±60°, backtracking) with pvlib; <b>green</b> POA meets the test threshold. Forecast only, not site met-station data. RT actual is the hourly average of 5-minute RTM prices; the current hour is partial. <span class="n">Blue</span> marks negative prices and the 4 cheapest DA hours; <span class="h">red</span> marks the 4 priciest. Tomorrow's day-ahead prices post around 1 to 2 pm Pacific.</p>
+    <div class="pick" id="hslBox" hidden style="margin-bottom:8px;gap:6px 14px">
+      <label>HSL model</label>
+      <span class="note">DC</span><input id="hDC" type="number" step="0.1" min="0" class="hin"><span class="note">MWdc</span>
+      <span class="note">Bifacial</span><input id="hBF" type="number" step="0.5" class="hin"><span class="note">%</span>
+      <span class="note">Temp</span><input id="hTD" type="number" step="0.5" class="hin"><span class="note">%</span>
+      <span class="note">Other losses</span><input id="hOL" type="number" step="0.5" class="hin"><span class="note">%</span>
+      <span class="note">POI cap</span><input id="hCAP" type="number" step="1" class="hin"><span class="note">MW</span>
+      <span class="note" id="hslSum"></span>
+    </div>
+    <div class="tw"><table id="daT"><colgroup><col class="cHE"><col class="cP"><col class="cP"><col class="cP"><col class="cP"><col class="cI"><col class="cI"><col class="cW"><col class="cW"><col class="cP hslc"><col></colgroup>
+<thead><tr class="grp"><th></th><th colspan="4" class="gp">Price · $/MWh</th><th colspan="2" class="irr gi">Irradiance · W/m²</th><th colspan="2" class="irr gi">Weather</th><th class="irr gi hslh">HSL</th><th></th></tr>
+<tr><th>HE (PT)</th><th>DA fcst</th><th>RT actual</th><th>Δ</th><th>NP15 DA</th><th class="irr">GHI</th><th class="irr">POA</th><th class="irr">Cloud</th><th class="irr">Temp</th><th class="hsl hslh">MW</th><th style="text-align:left">Shape</th></tr></thead><tbody></tbody></table></div>
+    <p class="note">HSL (PV sites only): estimated High Sustainable Limit = DC rating × forecast POA ÷ 1000 × (1 + bifacial) × (1 − temperature derate) × (1 − other losses), capped at the POI limit. Model inputs are editable and saved in your browser per site; it is a planning estimate, not the CAISO VER forecast. Irradiance: Open-Meteo forecast (NOAA HRRR/NBM blend) at the Scarlet site (36.598, -120.362), hourly means for each hour ending. GHI is global horizontal; POA is modeled for a single-axis tracker (N-S axis, ±60°, backtracking) with pvlib; <b>green</b> POA meets the test threshold. Forecast only, not site met-station data. RT actual is the hourly average of 5-minute RTM prices; the current hour is partial. <span class="n">Blue</span> marks negative prices and the 4 cheapest DA hours; <span class="h">red</span> marks the 4 priciest. Tomorrow's day-ahead prices post around 1 to 2 pm Pacific.</p>
   </section>
 
   <section class="card" id="outlook">
@@ -211,8 +221,16 @@ function outlook(L){
   const best=days.map(d=>[d,byDay[d].filter(r=>r[2]>=pmin).length]).filter(x=>x[1]).sort((a,b)=>b[1]-a[1])[0];
   $("olNote").textContent=best?`Most test hours at ≥${pmin} W/m²: ${new Date(best[0]+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})} (${best[1]} h).`:`No hours forecast at or above ${pmin} W/m² in the next 5 days.`;
 }
+
+const PV={sonrisa_pv:{dc:279.6,bf:8,td:6.5,ol:6,cap:200},s1a_pv:{dc:0,bf:8,td:6.5,ol:6,cap:0},s1b_pv:{dc:0,bf:8,td:6.5,ol:6,cap:0},s2_pv:{dc:0,bf:8,td:6.5,ol:6,cap:0}};
+function hslParams(){let p=Object.assign({},PV[SEL]||{});try{const v=JSON.parse(localStorage.getItem("hsl_"+SEL)||"null");if(v)Object.assign(p,v)}catch(e){}return p;}
+function hslLoad(){const p=hslParams();$("hDC").value=p.dc||"";$("hBF").value=p.bf;$("hTD").value=p.td;$("hOL").value=p.ol;$("hCAP").value=p.cap||"";}
+function hslSave(){const p={dc:+$("hDC").value||0,bf:+$("hBF").value,td:+$("hTD").value,ol:+$("hOL").value,cap:+$("hCAP").value||0};try{localStorage.setItem("hsl_"+SEL,JSON.stringify(p))}catch(e){};if(LAST)render(LAST);}
+function hslMW(poa){const p=hslParams();if(!p.dc)return null;let mw=p.dc*poa/1000*(1+p.bf/100)*(1-p.td/100)*(1-p.ol/100);if(p.cap)mw=Math.min(mw,p.cap);return mw;}
 function render(L){
   document.querySelectorAll(".selName").forEach(e=>e.textContent=NAMES[SEL]);
+  const isPV=!!PV[SEL]; $("hslBox").hidden=!isPV; document.querySelectorAll(".hslh").forEach(e=>e.style.display=isPV?"":"none"); document.querySelectorAll("col.hslc").forEach(e=>e.style.width=isPV?"86px":"0px"); if(isPV&&$("hslBox").dataset.sel!==SEL){hslLoad();$("hslBox").dataset.sel=SEL;}
+  let hslMax=0,hslMWh=0;
   const age=(Date.now()/1000-L.generated)/60; $("dot").classList.toggle("stale",age>20);
   const s=L.rt[SEL]||[], last=s[s.length-1], np=L.rt.np15||[], npLast=np[np.length-1];
   $("upd").textContent=(age>20?"Data delayed · ":"Live · ")+"refreshed "+new Date(L.generated*1000).toLocaleString("en-US",{timeZone:"America/Los_Angeles",dateStyle:"medium",timeStyle:"short"})+" PT";
@@ -239,8 +257,9 @@ function render(L){
     const a=rtH[t]?rtH[t].reduce((x,y)=>x+y,0)/rtH[t].length:null, cur=now>=t&&now<t+3600, d=ptD(t);
     if(a!=null){dsum+=a-p;dn++;}
     const cls=p<0||p<=lo?"n":p>=hi?"h":"", w=Math.min(120,Math.abs(p)*1.6);
-    const row=`<tr class="${cur?"cur":""}"><td>${cur?"▶ ":""}${d!==day?d+" ":""}HE${ptH(t)+1}</td><td class="${cls}">${usd(p)}</td><td>${a==null?"·":(cur?"<i>"+usd(a)+"</i>":usd(a))}</td><td class="${a!=null&&Math.abs(a-p)>=10?"b":""}">${a==null?"":sgn(a-p)}</td><td>${usd(dnp[t])}</td>${(()=>{const i=IR[t];if(!i)return '<td class="irr">·</td><td class="irr">·</td><td class="irr">·</td><td class="irr">·</td>';if(i[2]>=pmin)okH.push(d+" HE"+(ptH(t)+1));return `<td class="irr">${i[1]}</td><td class="irr ${i[2]>=pmin?"ok":""}">${i[2]}</td><td class="irr">${i[4]}%</td><td class="irr">${Math.round(i[5])}°F</td>`})()}<td style="text-align:left"><span class="bar" style="width:${w}px;background:${color(p)}"></span></td></tr>`;
+    const row=`<tr class="${cur?"cur":""}"><td>${cur?"▶ ":""}${d!==day?d+" ":""}HE${ptH(t)+1}</td><td class="${cls}">${usd(p)}</td><td>${a==null?"·":(cur?"<i>"+usd(a)+"</i>":usd(a))}</td><td class="${a!=null&&Math.abs(a-p)>=10?"b":""}">${a==null?"":sgn(a-p)}</td><td>${usd(dnp[t])}</td>${(()=>{const i=IR[t];if(!i)return '<td class="irr">·</td><td class="irr">·</td><td class="irr">·</td><td class="irr">·</td>';if(i[2]>=pmin)okH.push(d+" HE"+(ptH(t)+1));return `<td class="irr">${i[1]}</td><td class="irr ${i[2]>=pmin?"ok":""}">${i[2]}</td><td class="irr">${i[4]}%</td><td class="irr">${Math.round(i[5])}°F</td>`})()}${PV[SEL]?(()=>{const i=IR[t];const m=i?hslMW(i[2]):null;if(m!=null){hslMax=Math.max(hslMax,m);if(ptDay(t)===ptDay(now))hslMWh+=m;}return `<td class="hsl">${m==null?(i?"set DC":"·"):m.toFixed(0)}</td>`})():""}<td style="text-align:left"><span class="bar" style="width:${w}px;background:${color(p)}"></span></td></tr>`;
     day=d;return row}).join("");
+  if(isPV){const p=hslParams();$("hslSum").textContent=p.dc?`Today ≈ ${Math.round(hslMWh).toLocaleString()} MWh · peak ${Math.round(hslMax)} MW · ${(p.dc*(1+p.bf/100)*(1-p.td/100)*(1-p.ol/100)/1000).toFixed(3)} MW per W/m²`:"Enter the site DC rating to calculate HSL.";}
   $("poaSum").textContent=okH.length?`${okH.length} HE at or above ${pmin} W/m² POA: ${okH.join(", ")}`:`No hours forecast at or above ${pmin} W/m² POA.`;
   $("daSum").textContent=da.length?`DA min ${usd(ps[0])} · max ${usd(ps[ps.length-1])} · ${ps.filter(x=>x<0).length} negative HE${dn?` · RT vs DA so far ${sgn(dsum/dn)}/MWh avg`:""}`:"No day-ahead prices published yet.";
   outlook(L);
@@ -263,6 +282,7 @@ async function sim(){
   }catch(e){$("simNote").textContent="Simulation data unavailable.";}
 }
 $("poaMin").addEventListener("change",()=>{if(LAST)render(LAST)});
+["hDC","hBF","hTD","hOL","hCAP"].forEach(id=>$(id).addEventListener("change",hslSave));
 load();sim();setInterval(load,5*60*1000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&LAST&&Date.now()/1000-LAST.generated>360)load();});
 setInterval(()=>{if(LAST){const a=(Date.now()/1000-LAST.generated)/60;$("dot").classList.toggle("stale",a>20);}},60000);
