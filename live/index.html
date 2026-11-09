@@ -49,6 +49,7 @@ th.irr,td.irr{background:var(--irrbg)}td.ok{color:var(--ok);font-weight:700}
 .conf{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:650;border:1px solid currentColor}
 .spark{display:flex;align-items:flex-end;gap:2px;height:30px}.spark i{display:block;width:7px;border-radius:2px 2px 0 0;background:var(--line)}.spark i.ok{background:var(--ok)}
 .hin{width:76px;font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:4px 6px}#daT td.hsl,#daT th.hsl{background:var(--irrbg);font-weight:650;text-align:right;padding-left:4px;padding-right:8px}#daT th.hslh.gi{text-align:center;padding-left:2px;padding-right:2px}#daT col.hslc{width:58px}
+.fctabs button{font:inherit;font-size:13px;font-weight:600;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}.fctabs button.on{background:var(--acc);color:#fff;border-color:var(--acc)}#fcT td.m{font-style:italic;color:var(--mut)}
 </style>
 </head>
 <body>
@@ -59,7 +60,7 @@ th.irr,td.irr{background:var(--irrbg)}td.ok{color:var(--ok);font-weight:700}
       <h1>Scarlet / Sonrisa Node Prices</h1>
       <div class="status"><span class="dot" id="dot"></span><span id="upd">Loading CAISO data…</span></div>
     </div>
-    <nav class="links"><a href="#forecast">Forecast</a><a href="#outlook">5-day</a><a href="#sim">Arbitrage</a><a href="#glossary">Glossary</a><a href="../">Simulator</a></nav>
+    <nav class="links"><a href="#forecast">Forecast</a><a href="#outlook">5-day</a><a href="#fc3">3-day PV & price</a><a href="#sim">Arbitrage</a><a href="#glossary">Glossary</a><a href="../">Simulator</a></nav>
   </header>
 
   <section class="card hero" id="hero">
@@ -128,6 +129,13 @@ th.irr,td.irr{background:var(--irrbg)}td.ok{color:var(--ok);font-weight:700}
     <p class="note" id="olNote"></p>
     <div class="tw"><table id="olT"><thead><tr><th>Day</th><th>Confidence</th><th>Peak POA</th><th>HE at/above threshold</th><th>Daily POA</th><th>Daytime cloud</th><th>High</th><th style="text-align:left">Hourly POA (HE6 to HE19)</th></tr></thead><tbody></tbody></table></div>
     <p class="note">POA = modeled single-axis tracker irradiance, W/m²; daily POA in kWh/m². Confidence reflects forecast lead time: HRRR-driven days 1 to 2 are dependable, days 3 to 4 show the trend, day 5 is a rough guide. Threshold follows the Test POA box above.</p>
+  </section>
+
+  <section class="card" id="fc3">
+    <h2>3-day forecast · PV output and node price</h2>
+    <div class="pick" style="margin-bottom:8px"><label>Day</label><div id="fcTabs" class="links fctabs"></div><span class="note" id="fcSum"></span></div>
+    <div class="tw"><table id="fcT"><thead><tr><th>HE (PT)</th><th>POA W/m²</th><th>HSL MW</th><th>Price $/MWh</th><th>Source</th><th>Value $</th><th style="text-align:left">Output</th></tr></thead><tbody></tbody></table></div>
+    <p class="note" id="fcNote"></p>
   </section>
 
   <section class="grid2">
@@ -227,6 +235,23 @@ function hslParams(){let p=Object.assign({},PV[SEL]||{});try{const v=JSON.parse(
 function hslLoad(){const p=hslParams();$("hDC").value=p.dc||"";$("hBF").value=p.bf;$("hTD").value=p.td;$("hOL").value=p.ol;$("hCAP").value=p.cap||"";}
 function hslSave(){const p={dc:+$("hDC").value||0,bf:+$("hBF").value,td:+$("hTD").value,ol:+$("hOL").value,cap:+$("hCAP").value||0};try{localStorage.setItem("hsl_"+SEL,JSON.stringify(p))}catch(e){};if(LAST)render(LAST);}
 function hslMW(poa){const p=hslParams();if(!p.dc)return null;let mw=p.dc*poa/1000*(1+p.bf/100)*(1-p.td/100)*(1-p.ol/100);if(p.cap)mw=Math.min(mw,p.cap);return mw;}
+
+let FCDAY=null;
+function fc3(L){
+  const F=(L.fc&&L.fc.rows)||[]; if(!F.length){$("fcNote").textContent="Forecast unavailable.";return;}
+  const pvKey=PV[SEL]?SEL:"sonrisa_pv", saved=SEL; 
+  const pp=(()=>{let p=Object.assign({},PV[pvKey]);try{const v=JSON.parse(localStorage.getItem("hsl_"+pvKey)||"null");if(v)Object.assign(p,v)}catch(e){}return p})();
+  const mw=poa=>{if(!pp.dc)return null;let m=pp.dc*poa/1000*(1+pp.bf/100)*(1-pp.td/100)*(1-pp.ol/100);return pp.cap?Math.min(m,pp.cap):m};
+  const days=[...new Set(F.map(r=>ptDay(r[0])))].sort().slice(0,4); if(!FCDAY||!days.includes(FCDAY))FCDAY=days[Math.min(1,days.length-1)];
+  $("fcTabs").innerHTML=days.map(d=>`<button data-d="${d}" class="${d===FCDAY?"on":""}">${new Date(d+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</button>`).join("");
+  $("fcTabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{FCDAY=b.dataset.d;fc3(LAST)});
+  const rows=F.filter(r=>ptDay(r[0])===FCDAY); let mwh=0,val=0,anyDA=false,anyM=false; const peak=Math.max(1,...rows.map(r=>mw(r[1])||0));
+  $("fcT").tBodies[0].innerHTML=rows.map(([t,poa,model,da])=>{const m=mw(poa), p=da!=null?da:model; if(da!=null)anyDA=true; else anyM=true; if(m!=null){mwh+=m; if(p!=null) val+=m*p;}
+    return `<tr><td>HE${ptH(t)+1}</td><td>${poa}</td><td class="b">${m==null?"set DC":m.toFixed(0)}</td><td class="${da==null?"m":""}${p!=null&&p<0?" n":""}">${p==null?"·":usd(p)}</td><td style="text-align:center">${da!=null?"DA":"model"}</td><td class="${m!=null&&p!=null&&m*p<0?"n":""}">${m==null||p==null?"·":money(m*p)}</td><td style="text-align:left"><span class="bar" style="width:${m?Math.round(110*m/peak):0}px;background:var(--ok)"></span></td></tr>`}).join("");
+  $("fcSum").textContent=pp.dc?`${NAMES[pvKey]}: ≈ ${Math.round(mwh).toLocaleString()} MWh · value ≈ ${money(val)} · avg ${mwh?usd(val/mwh):"–"}/MWh`:`Enter ${NAMES[pvKey]} DC rating in the HSL model to size output.`;
+  const M=L.fc.model||{};
+  $("fcNote").textContent=`Output: HSL model for ${NAMES[pvKey]}${PV[saved]?"":" (select a PV node to change site)"}, from the irradiance forecast. Price: published CAISO day-ahead where available (DA); otherwise a per-hour regression of the node's DA price on forecast POA over the last ${M.days||30} days (model, italic; typical error ±$${M.mae??"?"}/MWh, midday ≈ ${M.midday_slope??"?"} $/MWh per 100 W/m²). Model prices ignore load, gas, outages and congestion changes, so treat them as a guide.`;
+}
 function render(L){
   document.querySelectorAll(".selName").forEach(e=>e.textContent=NAMES[SEL]);
   const isPV=!!PV[SEL]; $("hslBox").hidden=!isPV; document.querySelectorAll(".hslh").forEach(e=>e.style.display=isPV?"":"none"); document.querySelectorAll("col.hslc").forEach(e=>e.style.width=isPV?"58px":"0px"); if(isPV&&$("hslBox").dataset.sel!==SEL){hslLoad();$("hslBox").dataset.sel=SEL;}
@@ -263,6 +288,7 @@ function render(L){
   $("poaSum").textContent=okH.length?`${okH.length} HE at or above ${pmin} W/m² POA: ${okH.join(", ")}`:`No hours forecast at or above ${pmin} W/m² POA.`;
   $("daSum").textContent=da.length?`DA min ${usd(ps[0])} · max ${usd(ps[ps.length-1])} · ${ps.filter(x=>x<0).length} negative HE${dn?` · RT vs DA so far ${sgn(dsum/dn)}/MWh avg`:""}`:"No day-ahead prices published yet.";
   outlook(L);
+  fc3(L);
   // 48h charts
   const npM=Object.fromEntries(np.map(r=>[r[0],r[1]]));
   const labels=s.map(r=>ptD(r[0])+" "+ptT(r[0]));

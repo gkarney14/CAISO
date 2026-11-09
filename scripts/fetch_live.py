@@ -45,6 +45,7 @@ for r in rows:
     if r["LMP_TYPE"] != "LMP" or r["NODE"] not in DA_NODES: continue
     t = int(dt.datetime.fromisoformat(r["INTERVALSTARTTIME_GMT"]).timestamp())
     da.setdefault(DA_NODES[r["NODE"]], {})[t] = round(val(r), 2)
+out_da = {k: {t: p for t, p in v.items()} for k, v in da.items()}
 # --- Irradiance forecast at the Scarlet site (public coordinates, Global Energy Monitor) ---
 SITE = (36.5975, -120.3623)
 irr = []
@@ -52,7 +53,7 @@ try:
     import pandas as pd, pvlib
     q = (f"https://api.open-meteo.com/v1/forecast?latitude={SITE[0]}&longitude={SITE[1]}"
          "&hourly=shortwave_radiation,direct_normal_irradiance,diffuse_radiation,cloud_cover,temperature_2m"
-         "&temperature_unit=fahrenheit&timezone=UTC&forecast_days=7&past_days=1")
+         "&temperature_unit=fahrenheit&timezone=UTC&forecast_days=7&past_days=31")
     h = json.load(urllib.request.urlopen(q, timeout=60))["hourly"]
     end = pd.to_datetime(h["time"], utc=True)            # values are means over the hour ending at this time
     mid = end - pd.Timedelta(minutes=30)
@@ -67,7 +68,35 @@ try:
         irr.append([st, round(ghi.iloc[i]), round(float(poa.iloc[i]) if poa.iloc[i] == poa.iloc[i] else 0), round(dni.iloc[i]), h["cloud_cover"][i], h["temperature_2m"][i]])
 except Exception as ex:
     print("irradiance skipped:", ex)
-out = {"generated": int(time.time()), "irr_site": {"lat": SITE[0], "lon": SITE[1], "tracker": "1-axis N-S, +/-60 deg, backtracking, GCR 0.35"}, "irr": irr,
+# --- Modeled node price from irradiance: per-HE linear fit of DA price on POA, last 30 days ---
+fc = {"model": None, "rows": []}
+try:
+    import numpy as np
+    P = json.load(open("data/prices.json"))["series"]["node"]["da"]     # [[epoch_start, price]], cohort pnode
+    pmap = {int(t): p for t, p in P}
+    for t, p in out_da.get("scarlet", {}).items(): pmap[int(t)] = p
+    imap = {r[0]: r[2] for r in irr}
+    now_s = time.time(); coef = {}; err = []
+    for h in range(24):
+        xs, ys = [], []
+        for t, poa in imap.items():
+            if t < now_s - 86400 and t >= now_s - 31 * 86400 and t in pmap and dt.datetime.fromtimestamp(t, PT).hour == h:
+                xs.append(poa); ys.append(pmap[t])
+        if len(xs) >= 10:
+            X = np.array(xs); Y = np.array(ys)
+            b, a = (np.polyfit(X, Y, 1) if X.std() > 5 else (0.0, Y.mean()))
+            coef[h] = (float(a), float(b)); err += list(np.abs(a + b * X - Y))
+    da_known = set(pmap)
+    for t, poa in sorted(imap.items()):
+        if t < int(today.timestamp()) or t >= int(today.timestamp()) + 4 * 86400: continue
+        h = dt.datetime.fromtimestamp(t, PT).hour
+        model = round(coef[h][0] + coef[h][1] * poa, 2) if h in coef else None
+        fc["rows"].append([t, poa, model, pmap.get(t)])
+    fc["model"] = {"type": "per-HE linear: DA price ~ POA", "days": 30, "mae": round(float(np.mean(err)), 2) if err else None,
+                   "midday_slope": round(float(np.mean([coef[h][1] for h in range(10, 15) if h in coef])) * 100, 2) if coef else None}
+except Exception as ex:
+    print("price model skipped:", ex)
+out = {"generated": int(time.time()), "fc": fc, "irr_site": {"lat": SITE[0], "lon": SITE[1], "tracker": "1-axis N-S, +/-60 deg, backtracking, GCR 0.35"}, "irr": irr,
        "rt": {n: [[t, d.get("LMP"), d.get("MCE"), d.get("MCC"), d.get("MCL"), d.get("MGHG")] for t, d in sorted(v.items()) if "LMP" in d] for n, v in rt.items()},
        "da": {n: [[t, p] for t, p in sorted(v.items())] for n, v in da.items()}}
 json.dump(out, open("data/live.json", "w"), separators=(",", ":"))
