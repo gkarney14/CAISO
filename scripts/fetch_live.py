@@ -46,6 +46,18 @@ for r in rows:
     t = int(dt.datetime.fromisoformat(r["INTERVALSTARTTIME_GMT"]).timestamp())
     da.setdefault(DA_NODES[r["NODE"]], {})[t] = round(val(r), 2)
 out_da = {k: {t: p for t, p in v.items()} for k, v in da.items()}
+
+def om_get(name, url, max_age=3 * 3600):
+    """Open-Meteo data: prefer the copy the home box publishes to branch "weather" (GitHub runner IPs get 429), else live."""
+    try:
+        c = json.load(urllib.request.urlopen(f"https://raw.githubusercontent.com/gkarney14/CAISO/weather/{name}?t={int(time.time())}", timeout=30))
+        if time.time() - c["fetched"] < max_age:
+            print(f"{name}: using box-published copy ({int((time.time() - c['fetched']) / 60)} min old)")
+            return c["data"]
+    except Exception as e:
+        print(f"{name}: no box copy ({e}), fetching live")
+    return json.load(urllib.request.urlopen(url, timeout=60))
+
 # --- Irradiance forecast at the Scarlet site (public coordinates, Global Energy Monitor) ---
 SITE = (36.5975, -120.3623)
 irr = []
@@ -54,7 +66,7 @@ try:
     q = (f"https://api.open-meteo.com/v1/forecast?latitude={SITE[0]}&longitude={SITE[1]}"
          "&hourly=shortwave_radiation,direct_normal_irradiance,diffuse_radiation,cloud_cover,temperature_2m"
          "&temperature_unit=fahrenheit&timezone=UTC&forecast_days=7&past_days=31")
-    h = json.load(urllib.request.urlopen(q, timeout=60))["hourly"]
+    h = om_get("om_hourly.json", q)["hourly"]
     end = pd.to_datetime(h["time"], utc=True)            # values are means over the hour ending at this time
     mid = end - pd.Timedelta(minutes=30)
     sp = pvlib.solarposition.get_solarposition(mid, SITE[0], SITE[1])
@@ -104,7 +116,7 @@ try:
     q = (f"https://api.open-meteo.com/v1/forecast?latitude={SITE[0]}&longitude={SITE[1]}"
          "&minutely_15=shortwave_radiation,direct_normal_irradiance,diffuse_radiation&timezone=UTC&forecast_days=4"
          f"&past_days={max(0, (today.date() - FC_START.date()).days + 1)}")
-    m = json.load(urllib.request.urlopen(q, timeout=60))["minutely_15"]
+    m = om_get("om_15.json", q)["minutely_15"]
     end = pd.to_datetime(m["time"], utc=True); mid = end - pd.Timedelta(minutes=7.5)      # 15-min means ending at label
     sp = pvlib.solarposition.get_solarposition(mid, SITE[0], SITE[1])
     trk = pvlib.tracking.singleaxis(sp["apparent_zenith"], sp["azimuth"], axis_tilt=0, axis_azimuth=180, max_angle=60, backtrack=True, gcr=0.35)
